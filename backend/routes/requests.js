@@ -17,6 +17,31 @@ function getSignedInEmployeeEmail(req) {
   return normalizeEmail(req.get('x-user-email'));
 }
 
+function normalizeApproverList(reqBody) {
+  if (Array.isArray(reqBody.approver_emails)) {
+    return reqBody.approver_emails.map(normalizeEmail).filter(Boolean);
+  }
+
+  return [
+    reqBody.supervisor_email,
+    reqBody.assistant_manager_email,
+    reqBody.manager_email
+  ].map(normalizeEmail).filter(Boolean);
+}
+
+function buildEmailDraft({ requestId, level, filePath, submittedBy, approverEmail, deadline, actionToken }) {
+  const approveUrl = buildApproveUrl(actionToken);
+  return buildApprovalEmailDraft({
+    requestId,
+    level,
+    filePath,
+    submittedBy,
+    approverEmail,
+    deadline: deadline.toISOString(),
+    approveUrl
+  });
+}
+
 /**
  * POST /api/requests
  * Creates a new document approval request.
@@ -25,10 +50,10 @@ router.post('/', async (req, res) => {
   const {
     file_path,
     submitted_by,
-    supervisor_email,
-    assistant_manager_email,
-    manager_email
+    approval_mode
   } = req.body;
+  const approvalMode = approval_mode === 'parallel' ? 'parallel' : 'sequential';
+  const approverEmails = normalizeApproverList(req.body);
 
   if (!file_path || !submitted_by) {
     return res.status(400).json({ error: 'file_path and submitted_by are required.' });
@@ -43,18 +68,18 @@ router.post('/', async (req, res) => {
     return res.status(403).json({ error: 'You can only create workflows for your signed-in email.' });
   }
 
-  if (![submitted_by, supervisor_email, assistant_manager_email, manager_email].every(isEmail)) {
+  if (!approverEmails.length || !approverEmails.every(isEmail)) {
     return res.status(400).json({
-      error: 'Valid submitted_by, supervisor_email, assistant_manager_email, and manager_email are required.'
+      error: 'At least one valid approver email is required.'
     });
   }
 
   const client = await db.connect();
   try {
     const submittedBy = signedInEmail;
-    const supervisorEmail = normalizeEmail(supervisor_email);
-    const assistantManagerEmail = normalizeEmail(assistant_manager_email);
-    const managerEmail = normalizeEmail(manager_email);
+    const supervisorEmail = approverEmails[0] || null;
+    const assistantManagerEmail = approverEmails[1] || null;
+    const managerEmail = approverEmails[2] || null;
 
     await client.query('BEGIN');
 
@@ -66,11 +91,21 @@ router.post('/', async (req, res) => {
          supervisor_email,
          assistant_manager_email,
          manager_email,
+         approval_mode,
+         approver_chain,
          status,
          current_level
        )
-       VALUES ($1, $2, $3, $4, $5, 'draft', 1) RETURNING id`,
-      [file_path, submittedBy, supervisorEmail, assistantManagerEmail, managerEmail]
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, 'draft', 1) RETURNING id`,
+      [
+        file_path,
+        submittedBy,
+        supervisorEmail,
+        assistantManagerEmail,
+        managerEmail,
+        approvalMode,
+        JSON.stringify(approverEmails)
+      ]
     );
     const requestId = requestResult.rows[0].id;
 
@@ -78,31 +113,43 @@ router.post('/', async (req, res) => {
     const deadlineDate = new Date();
     deadlineDate.setDate(deadlineDate.getDate() + 2);
 
-    // 3. Create Level 1 approval log
-    const approverEmail = supervisorEmail;
-    const actionToken = crypto.randomBytes(16).toString('base64url');
-    const logResult = await client.query(
-      `INSERT INTO approval_logs (request_id, level, approver_email, action, action_token, deadline)
-       VALUES ($1, 1, $2, 'pending', $3, $4) RETURNING id`,
-      [requestId, approverEmail, actionToken, deadlineDate]
-    );
-    const logId = logResult.rows[0].id;
+    // 3. Create approval logs. Sequential starts with the first approver only;
+    // parallel creates every approver immediately.
+    const initialApprovers = approvalMode === 'parallel' ? approverEmails : [approverEmails[0]];
+    const emailDrafts = [];
+    const approvalLogs = [];
+
+    for (const [index, approverEmail] of initialApprovers.entries()) {
+      const level = approvalMode === 'parallel' ? index + 1 : 1;
+      const actionToken = crypto.randomBytes(16).toString('base64url');
+      const logResult = await client.query(
+        `INSERT INTO approval_logs (request_id, level, approver_email, action, action_token, deadline)
+         VALUES ($1, $2, $3, 'pending', $4, $5) RETURNING id`,
+        [requestId, level, approverEmail, actionToken, deadlineDate]
+      );
+
+      approvalLogs.push({
+        id: logResult.rows[0].id,
+        request_id: requestId,
+        level,
+        approver_email: approverEmail,
+        action: 'pending',
+        deadline: deadlineDate
+      });
+      emailDrafts.push(buildEmailDraft({
+        requestId,
+        level,
+        filePath: file_path,
+        submittedBy,
+        approverEmail,
+        deadline: deadlineDate,
+        actionToken
+      }));
+    }
 
     await client.query('COMMIT');
 
-    console.log(`Successfully created request ID ${requestId} and Level 1 approval log.`);
-
-    // 4. Return an Outlook-ready draft. The employee sends this from their own mailbox.
-    const approveUrl = buildApproveUrl(actionToken);
-    const emailDraft = buildApprovalEmailDraft({
-      requestId,
-      level: 1,
-      filePath: file_path,
-      submittedBy,
-      approverEmail,
-      deadline: deadlineDate.toISOString(),
-      approveUrl
-    });
+    console.log(`Successfully created request ID ${requestId} with ${approvalMode} approval mode.`);
 
     return res.status(201).json({
       message: 'Request submitted successfully.',
@@ -113,19 +160,16 @@ router.post('/', async (req, res) => {
         supervisor_email: supervisorEmail,
         assistant_manager_email: assistantManagerEmail,
         manager_email: managerEmail,
+        approval_mode: approvalMode,
+        approver_chain: approverEmails,
         status: 'draft',
         current_level: 1,
         created_at: new Date()
       },
-      approval_log: {
-        id: logId,
-        request_id: requestId,
-        level: 1,
-        approver_email: approverEmail,
-        action: 'pending',
-        deadline: deadlineDate
-      },
-      email_draft: emailDraft
+      approval_log: approvalLogs[0],
+      approval_logs: approvalLogs,
+      email_draft: emailDrafts[0],
+      email_drafts: emailDrafts
     });
 
   } catch (error) {

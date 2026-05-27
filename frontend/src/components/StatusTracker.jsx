@@ -1,17 +1,22 @@
 export default function StatusTracker({ currentLevel, status, logs = [] }) {
-  const steps = [
-    { level: 1, label: 'Supervisor' },
-    { level: 2, label: 'Assistant Mgr' },
-    { level: 3, label: 'Manager' }
-  ];
+  const sortedLogs = [...logs].sort((a, b) => Number(a.level) - Number(b.level));
+  const steps = sortedLogs.length
+    ? sortedLogs.map((log) => ({
+        level: Number(log.level),
+        label: `Approver ${log.level}`,
+        action: log.action
+      }))
+    : [
+        { level: 1, label: 'Approver 1', action: 'pending' }
+      ];
 
-  const rejectedLog = logs.find((log) => log.action === 'rejected');
-  const rejectedLevel = rejectedLog ? rejectedLog.level : currentLevel;
+  const rejectedLog = sortedLogs.find((log) => log.action === 'rejected');
+  const completedCount = sortedLogs.filter((log) => log.action === 'approved').length;
   const progressWidth = status === 'approved'
     ? '100%'
     : status === 'rejected'
-      ? `${((rejectedLevel - 1) / 3) * 100}%`
-      : `${((currentLevel - 1) / 3) * 100}%`;
+      ? `${Math.max(0, ((Number(rejectedLog?.level || currentLevel) - 1) / steps.length) * 100)}%`
+      : `${Math.max(0, (completedCount / steps.length) * 100)}%`;
 
   return (
     <div style={{ margin: '1rem 0' }}>
@@ -21,32 +26,17 @@ export default function StatusTracker({ currentLevel, status, logs = [] }) {
         </div>
 
         {steps.map((step) => {
-          let stepClass;
+          let stepClass = 'pending';
           let bubbleContent = step.level;
 
-          if (status === 'rejected') {
-            const rejectedLog = logs.find((log) => log.action === 'rejected');
-            const rejectedLevel = rejectedLog ? rejectedLog.level : currentLevel;
-
-            if (step.level < rejectedLevel) {
-              stepClass = 'completed';
-              bubbleContent = 'OK';
-            } else if (step.level === rejectedLevel) {
-              stepClass = 'rejected';
-              bubbleContent = 'X';
-            } else {
-              stepClass = 'pending';
-            }
-          } else if (status === 'approved') {
+          if (step.action === 'approved' || status === 'approved') {
             stepClass = 'completed';
             bubbleContent = 'OK';
-          } else if (currentLevel > step.level) {
-            stepClass = 'completed';
-            bubbleContent = 'OK';
-          } else if (currentLevel === step.level) {
+          } else if (step.action === 'rejected') {
+            stepClass = 'rejected';
+            bubbleContent = 'X';
+          } else if (Number(currentLevel) === step.level || logs.length > 1) {
             stepClass = 'active';
-          } else {
-            stepClass = 'pending';
           }
 
           return (
@@ -62,7 +52,7 @@ export default function StatusTracker({ currentLevel, status, logs = [] }) {
             {status === 'approved' ? 'OK' : status === 'rejected' ? 'X' : 'End'}
           </div>
           <div className="step-label">
-            {status === 'approved' ? 'Approved' : status === 'rejected' ? 'Rejected' : 'Final Certification'}
+            {status === 'approved' ? 'Approved' : status === 'rejected' ? 'Rejected' : 'Final'}
           </div>
         </div>
       </div>

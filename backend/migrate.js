@@ -61,6 +61,8 @@ async function runMigration() {
         supervisor_email VARCHAR(255),
         assistant_manager_email VARCHAR(255),
         manager_email VARCHAR(255),
+        approval_mode VARCHAR(50) NOT NULL DEFAULT 'sequential',
+        approver_chain JSONB,
         status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (status IN ('draft', 'pending', 'approved', 'rejected')),
         current_level INT NOT NULL DEFAULT 1,
         created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -71,7 +73,20 @@ async function runMigration() {
       ALTER TABLE requests
       ADD COLUMN IF NOT EXISTS supervisor_email VARCHAR(255),
       ADD COLUMN IF NOT EXISTS assistant_manager_email VARCHAR(255),
-      ADD COLUMN IF NOT EXISTS manager_email VARCHAR(255);
+      ADD COLUMN IF NOT EXISTS manager_email VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS approval_mode VARCHAR(50) NOT NULL DEFAULT 'sequential',
+      ADD COLUMN IF NOT EXISTS approver_chain JSONB;
+    `);
+
+    await client.query(`
+      ALTER TABLE requests
+      DROP CONSTRAINT IF EXISTS requests_approval_mode_check;
+    `);
+
+    await client.query(`
+      ALTER TABLE requests
+      ADD CONSTRAINT requests_approval_mode_check
+      CHECK (approval_mode IN ('sequential', 'parallel'));
     `);
 
     await client.query(`

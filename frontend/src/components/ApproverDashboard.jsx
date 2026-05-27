@@ -31,6 +31,7 @@ function buildRichDraftBody(body, approveUrl) {
 function getStatusLabel(request) {
   if (request.status === 'approved') return 'Completed';
   if (request.status === 'rejected') return 'Stopped';
+  if (request.approval_mode === 'parallel') return 'Parallel approval pending';
   return `Level ${request.current_level} pending`;
 }
 
@@ -45,11 +46,11 @@ export default function ApproverDashboard({ user, onLogout }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filePath, setFilePath] = useState('\\\\company-share\\finance\\April_Invoices_v2.xlsx');
-  const [supervisorEmail, setSupervisorEmail] = useState('');
-  const [assistantManagerEmail, setAssistantManagerEmail] = useState('');
-  const [managerEmail, setManagerEmail] = useState('');
+  const [approvalMode, setApprovalMode] = useState('sequential');
+  const [approverEmails, setApproverEmails] = useState(['', '', '']);
   const [creating, setCreating] = useState(false);
-  const [emailDraft, setEmailDraft] = useState(null);
+  const [emailDrafts, setEmailDrafts] = useState([]);
+  const [activeDraftIndex, setActiveDraftIndex] = useState(0);
   const [draftRequestId, setDraftRequestId] = useState(null);
   const [draftTo, setDraftTo] = useState('');
   const [draftSubject, setDraftSubject] = useState('');
@@ -91,6 +92,8 @@ export default function ApproverDashboard({ user, onLogout }) {
     setTimeout(() => setToast(null), 4000);
   };
 
+  const activeEmailDraft = emailDrafts[activeDraftIndex] || null;
+
   const editableOutlookUrl = useMemo(() => {
     if (!draftTo || !draftSubject || !draftBody) return '';
     return buildOutlookWebUrl({
@@ -100,13 +103,43 @@ export default function ApproverDashboard({ user, onLogout }) {
     });
   }, [draftTo, draftSubject, draftBody]);
 
+  const handleAddApprover = () => {
+    setApproverEmails((current) => [...current, '']);
+  };
+
+  const handleRemoveApprover = (indexToRemove) => {
+    setApproverEmails((current) => current.filter((_, index) => index !== indexToRemove));
+  };
+
+  const handleApproverChange = (indexToChange, value) => {
+    setApproverEmails((current) => current.map((email, index) => (
+      index === indexToChange ? value : email
+    )));
+  };
+
+  const handleSelectDraft = (index) => {
+    const draft = emailDrafts[index];
+    if (!draft) return;
+
+    setActiveDraftIndex(index);
+    setDraftTo(draft.to);
+    setDraftSubject(draft.subject);
+    setDraftBody(draft.body);
+    setDraftApproveUrl(draft.approveUrl);
+    setDraftReviewed(false);
+    setOutlookOpened(false);
+  };
+
   const handleCreateRequest = async (e) => {
     e.preventDefault();
     setCreating(true);
-    setEmailDraft(null);
+    setEmailDrafts([]);
+    setActiveDraftIndex(0);
     setDraftRequestId(null);
     setDraftReviewed(false);
     setOutlookOpened(false);
+
+    const cleanedApprovers = approverEmails.map((email) => email.trim()).filter(Boolean);
 
     try {
       const result = await apiFetch('/api/requests', {
@@ -118,19 +151,20 @@ export default function ApproverDashboard({ user, onLogout }) {
         body: JSON.stringify({
           file_path: filePath,
           submitted_by: user.email,
-          supervisor_email: supervisorEmail,
-          assistant_manager_email: assistantManagerEmail,
-          manager_email: managerEmail
+          approval_mode: approvalMode,
+          approver_emails: cleanedApprovers
         })
       });
 
-      setEmailDraft(result.email_draft);
+      const drafts = result.email_drafts?.length ? result.email_drafts : [result.email_draft];
+      setEmailDrafts(drafts);
+      setActiveDraftIndex(0);
       setDraftRequestId(result.request.id);
-      setDraftTo(result.email_draft.to);
-      setDraftSubject(result.email_draft.subject);
-      setDraftBody(result.email_draft.body);
-      setDraftApproveUrl(result.email_draft.approveUrl);
-      showToast(`Draft #${result.request.id} created. It will appear in My Requests after you confirm the Outlook email was sent.`);
+      setDraftTo(drafts[0].to);
+      setDraftSubject(drafts[0].subject);
+      setDraftBody(drafts[0].body);
+      setDraftApproveUrl(drafts[0].approveUrl);
+      showToast(`Draft #${result.request.id} created with ${drafts.length} email draft${drafts.length === 1 ? '' : 's'}.`);
     } catch (err) {
       alert(`Create Request Error: ${err.message}`);
     } finally {
@@ -186,7 +220,8 @@ export default function ApproverDashboard({ user, onLogout }) {
   const handleMarkSent = async () => {
     if (!draftRequestId) return;
 
-    const confirmed = window.confirm('Confirm that you sent this Outlook email to the first approver?');
+    const label = emailDrafts.length > 1 ? 'these Outlook emails' : 'this Outlook email';
+    const confirmed = window.confirm(`Confirm that you sent ${label} to the approver${emailDrafts.length === 1 ? '' : 's'}?`);
     if (!confirmed) return;
 
     setMarkingSent(true);
@@ -199,7 +234,8 @@ export default function ApproverDashboard({ user, onLogout }) {
       });
 
       showToast(`Request #${draftRequestId} is now pending approval.`);
-      setEmailDraft(null);
+      setEmailDrafts([]);
+      setActiveDraftIndex(0);
       setDraftRequestId(null);
       setDraftTo('');
       setDraftSubject('');
@@ -259,36 +295,60 @@ export default function ApproverDashboard({ user, onLogout }) {
           </div>
 
           <div className="form-group">
-            <label>Supervisor Outlook Email</label>
-            <input
-              type="email"
-              className="form-input"
-              value={supervisorEmail}
-              onChange={(e) => setSupervisorEmail(e.target.value)}
-              required
-            />
+            <label>Approval Sending Mode</label>
+            <div className="approval-mode-toggle">
+              <button
+                type="button"
+                className={`mode-option ${approvalMode === 'sequential' ? 'active' : ''}`}
+                onClick={() => setApprovalMode('sequential')}
+              >
+                Sequential
+              </button>
+              <button
+                type="button"
+                className={`mode-option ${approvalMode === 'parallel' ? 'active' : ''}`}
+                onClick={() => setApprovalMode('parallel')}
+              >
+                Sabay / Parallel
+              </button>
+            </div>
+            <small style={{ color: 'var(--text-muted)', display: 'block', marginTop: '0.5rem' }}>
+              Sequential sends top to bottom. Sabay / Parallel prepares emails for all approvers at the same time.
+            </small>
           </div>
 
           <div className="form-group">
-            <label>Assistant Manager Outlook Email</label>
-            <input
-              type="email"
-              className="form-input"
-              value={assistantManagerEmail}
-              onChange={(e) => setAssistantManagerEmail(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Manager Outlook Email</label>
-            <input
-              type="email"
-              className="form-input"
-              value={managerEmail}
-              onChange={(e) => setManagerEmail(e.target.value)}
-              required
-            />
+            <label>Approver Outlook Emails</label>
+            <small style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '0.75rem' }}>
+              Put approvers in order from top to bottom. Sequential follows this order.
+            </small>
+            <div className="approver-list">
+              {approverEmails.map((email, index) => (
+                <div className="approver-row" key={index}>
+                  <span className="approver-index">{index + 1}</span>
+                  <input
+                    type="email"
+                    className="form-input"
+                    value={email}
+                    onChange={(e) => handleApproverChange(index, e.target.value)}
+                    placeholder={`approver${index + 1}@company.com`}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    onClick={() => handleRemoveApprover(index)}
+                    disabled={approverEmails.length === 1}
+                    title="Remove approver"
+                  >
+                    -
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button type="button" className="btn btn-secondary add-approver-btn" onClick={handleAddApprover}>
+              + Add Approver
+            </button>
           </div>
 
           <button type="submit" className="btn btn-primary" disabled={creating}>
@@ -298,7 +358,7 @@ export default function ApproverDashboard({ user, onLogout }) {
 
         <div className="glass-panel employee-request-panel">
           <h2>Editable Outlook Draft</h2>
-          {!emailDraft ? (
+          {!activeEmailDraft ? (
             <div className="empty-state compact-empty">
               <h3>No draft yet</h3>
               <p>Create a request to generate an editable Outlook email.</p>
@@ -308,6 +368,21 @@ export default function ApproverDashboard({ user, onLogout }) {
               <div className="draft-safety-note">
                 Draft created. It is hidden from My Requests until you open Outlook and confirm the email was sent.
               </div>
+
+              {emailDrafts.length > 1 && (
+                <div className="draft-tabs">
+                  {emailDrafts.map((draft, index) => (
+                    <button
+                      type="button"
+                      key={`${draft.to}-${index}`}
+                      className={`draft-tab ${index === activeDraftIndex ? 'active' : ''}`}
+                      onClick={() => handleSelectDraft(index)}
+                    >
+                      Email {index + 1}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <div className="form-group">
                 <label>To</label>
@@ -416,6 +491,7 @@ export default function ApproverDashboard({ user, onLogout }) {
                 <tr>
                   <th>ID</th>
                   <th>Excel File Path</th>
+                  <th>Mode</th>
                   <th>Current Level</th>
                   <th>Status</th>
                   <th>Date Submitted</th>
@@ -429,6 +505,7 @@ export default function ApproverDashboard({ user, onLogout }) {
                     <td style={{ maxWidth: '360px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={request.file_path}>
                       <code>{request.file_path}</code>
                     </td>
+                    <td>{request.approval_mode === 'parallel' ? 'Sabay' : 'Sequential'}</td>
                     <td>{getStatusLabel(request)}</td>
                     <td><span className={`badge ${getStatusBadgeClass(request.status)}`}>{request.status}</span></td>
                     <td>{new Date(request.created_at).toLocaleString()}</td>
@@ -466,6 +543,10 @@ export default function ApproverDashboard({ user, onLogout }) {
               <div>
                 <span>Excel File Path</span>
                 <code>{selectedRequest.file_path}</code>
+              </div>
+              <div>
+                <span>Mode</span>
+                <strong>{selectedRequest.approval_mode === 'parallel' ? 'Sabay / Parallel' : 'Sequential'}</strong>
               </div>
               <div>
                 <span>Status</span>

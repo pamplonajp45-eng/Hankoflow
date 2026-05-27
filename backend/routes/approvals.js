@@ -54,6 +54,24 @@ function actionPage(title, message, nextDraft = null) {
   `;
 }
 
+function getApproverChain(request) {
+  if (Array.isArray(request.approver_chain)) return request.approver_chain;
+  if (typeof request.approver_chain === 'string') {
+    try {
+      const parsed = JSON.parse(request.approver_chain);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  return [
+    request.supervisor_email,
+    request.assistant_manager_email,
+    request.manager_email
+  ].filter(Boolean);
+}
+
 async function approveLog(client, log, request) {
   const now = new Date();
 
@@ -62,11 +80,36 @@ async function approveLog(client, log, request) {
     [now, log.id]
   );
 
-  if (log.level < 3) {
+  if (request.approval_mode === 'parallel') {
+    const { rows } = await client.query(
+      `SELECT COUNT(*)::int AS pending_count
+       FROM approval_logs
+       WHERE request_id = $1 AND action = 'pending'`,
+      [request.id]
+    );
+    const pendingCount = rows[0]?.pending_count || 0;
+
+    if (pendingCount === 0) {
+      await client.query("UPDATE requests SET status = 'approved' WHERE id = $1", [request.id]);
+      await client.query('COMMIT');
+      return {
+        message: 'Final approval confirmed. All parallel approvers are complete.',
+        status: 'approved'
+      };
+    }
+
+    await client.query('COMMIT');
+    return {
+      message: `Approval confirmed. Waiting for ${pendingCount} more parallel approver${pendingCount === 1 ? '' : 's'}.`,
+      status: 'pending'
+    };
+  }
+
+  const approverChain = getApproverChain(request);
+
+  if (log.level < approverChain.length) {
     const nextLevel = log.level + 1;
-    const nextApproverEmail = nextLevel === 2
-      ? request.assistant_manager_email || process.env.APPROVER_LEVEL_2_EMAIL || 'assistantmanager@company.com'
-      : request.manager_email || process.env.APPROVER_LEVEL_3_EMAIL || 'manager@company.com';
+    const nextApproverEmail = approverChain[nextLevel - 1];
     const nextDeadline = new Date();
     nextDeadline.setDate(nextDeadline.getDate() + 2);
     const nextActionToken = crypto.randomBytes(16).toString('base64url');
