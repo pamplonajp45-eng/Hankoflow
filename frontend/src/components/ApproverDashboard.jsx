@@ -93,6 +93,9 @@ export default function ApproverDashboard({ user, onLogout }) {
   };
 
   const activeEmailDraft = emailDrafts[activeDraftIndex] || null;
+  const pendingRequestsCount = requests.filter((request) => request.status === 'pending').length;
+  const approvedRequestsCount = requests.filter((request) => request.status === 'approved').length;
+  const hasUnsentDraft = Boolean(activeEmailDraft);
 
   const editableOutlookUrl = useMemo(() => {
     if (!draftTo || !draftSubject || !draftBody) return '';
@@ -281,6 +284,26 @@ export default function ApproverDashboard({ user, onLogout }) {
         </button>
       </div>
 
+      <div className="notification-strip">
+        {hasUnsentDraft && (
+          <div className="notification-pill urgent">
+            <span className="notify-dot"></span>
+            Draft waiting to be sent
+          </div>
+        )}
+        {pendingRequestsCount > 0 && (
+          <div className="notification-pill">
+            <span className="notify-dot"></span>
+            {pendingRequestsCount} active approval request{pendingRequestsCount === 1 ? '' : 's'}
+          </div>
+        )}
+        {approvedRequestsCount > 0 && (
+          <div className="notification-pill success">
+            {approvedRequestsCount} completed request{approvedRequestsCount === 1 ? '' : 's'}
+          </div>
+        )}
+      </div>
+
       <div className="employee-grid">
         <form className="glass-panel employee-request-panel" onSubmit={handleCreateRequest}>
           <h2>Create Approval Request</h2>
@@ -371,6 +394,7 @@ export default function ApproverDashboard({ user, onLogout }) {
           ) : (
             <div className="email-draft-box">
               <div className="draft-safety-note">
+                <span className="notify-dot"></span>
                 Draft created. It is hidden from My Requests until you open Outlook and confirm the email was sent.
               </div>
 
@@ -506,7 +530,10 @@ export default function ApproverDashboard({ user, onLogout }) {
               <tbody>
                 {requests.map((request) => (
                   <tr key={request.id}>
-                    <td>#{request.id}</td>
+                    <td>
+                      {request.status === 'pending' && <span className="table-dot" title="Pending approval"></span>}
+                      #{request.id}
+                    </td>
                     <td style={{ maxWidth: '360px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={request.file_path}>
                       <code>{request.file_path}</code>
                     </td>

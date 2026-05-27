@@ -49,6 +49,9 @@ export default function AdminDashboard({ user, onLogout }) {
     return `Pending: ${getLevelRole(req.current_level)}`;
   };
 
+  const pendingCount = requests.filter((request) => request.status === 'pending').length;
+  const draftCount = requests.filter((request) => request.status === 'draft').length;
+
   const handleDeleteRequest = async (req) => {
     const confirmed = window.confirm(`Delete request #${req.id}? This will remove its approval logs and reminders.`);
     if (!confirmed) return;
@@ -87,6 +90,21 @@ export default function AdminDashboard({ user, onLogout }) {
         </div>
       </div>
 
+      <div className="notification-strip">
+        {pendingCount > 0 && (
+          <div className="notification-pill">
+            <span className="notify-dot"></span>
+            {pendingCount} pending workflow{pendingCount === 1 ? '' : 's'}
+          </div>
+        )}
+        {draftCount > 0 && (
+          <div className="notification-pill urgent">
+            <span className="notify-dot"></span>
+            {draftCount} draft not yet sent
+          </div>
+        )}
+      </div>
+
       {loading ? (
         <div style={{ textAlign: 'center', padding: '3rem' }}>Loading audit trail data...</div>
       ) : error ? (
@@ -117,7 +135,12 @@ export default function AdminDashboard({ user, onLogout }) {
               <tbody>
                 {requests.map((req) => (
                   <tr key={req.id}>
-                    <td>#{req.id}</td>
+                    <td>
+                      {(req.status === 'pending' || req.status === 'draft') && (
+                        <span className="table-dot" title={req.status === 'draft' ? 'Draft not sent' : 'Pending approval'}></span>
+                      )}
+                      #{req.id}
+                    </td>
                     <td>{req.submitted_by}</td>
                     <td style={{ maxWidth: '280px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={req.file_path}>
                       <code>{req.file_path}</code>

@@ -388,6 +388,52 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--text-secondary);
 }
 
+.notification-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: -1.25rem 0 1.5rem;
+}
+
+.notification-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.notification-pill.urgent {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.notification-pill.success {
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.notify-dot,
+.table-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 999px;
+  background: var(--danger);
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.16);
+  flex: 0 0 auto;
+}
+
+.table-dot {
+  display: inline-block;
+  margin-right: 0.45rem;
+  vertical-align: middle;
+}
+
 /* Grid Layouts */
 .dashboard-grid {
   display: grid;
@@ -663,6 +709,9 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .draft-safety-note {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
   margin-bottom: 1rem;
   padding: 0.75rem 0.9rem;
   border: 1px solid rgba(16, 185, 129, 0.3);
