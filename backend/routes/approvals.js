@@ -13,16 +13,35 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+function serializeForScript(value) {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
 function actionPage(title, message, nextDraft = null) {
   const nextDraftHtml = nextDraft
     ? `
           <hr />
           <h2>Next approver</h2>
-          <p>Your Hanko confirmation is recorded. Click Done to open the next Outlook email.</p>
-          <p><a class="button" href="${escapeHtml(nextDraft.outlookWebUrl || nextDraft.mailto)}">Done - Send to Next Approver</a></p>
-          <p class="hint">Outlook will open with the next approver, subject, and message already filled in. Review it, then click Send in Outlook.</p>
+          <p>Your Hanko confirmation is recorded. Copy the rich email first, then open Outlook for the next approver.</p>
+          <div class="draft-card">
+            <p><strong>To:</strong> ${escapeHtml(nextDraft.to)}</p>
+            <p><strong>Subject:</strong> ${escapeHtml(nextDraft.subject)}</p>
+          </div>
+          <div class="actions">
+            <button class="button" type="button" id="copy-rich-email">Copy Rich Email</button>
+            <a class="button secondary" href="${escapeHtml(nextDraft.outlookWebUrl || nextDraft.mailto)}" target="_blank" rel="noreferrer">Open Outlook for Next Approver</a>
+          </div>
+          <p class="hint">Paste the rich email into Outlook so the text "Approval Link" stays clickable for the next approver.</p>
       `
     : '';
+  const nextDraftPayload = nextDraft
+    ? serializeForScript({
+        to: nextDraft.to,
+        subject: nextDraft.subject,
+        body: nextDraft.body,
+        htmlBody: nextDraft.htmlBody
+      })
+    : 'null';
 
   return `
     <!doctype html>
@@ -39,7 +58,17 @@ function actionPage(title, message, nextDraft = null) {
           p { line-height: 1.55; }
           .hint { color: #64748b; font-size: 14px; }
           hr { border: 0; border-top: 1px solid #dde2ec; margin: 24px 0; }
-          .button { display: inline-block; background: #2563eb; color: #fff; text-decoration: none; padding: 12px 16px; border-radius: 6px; font-weight: 700; }
+          .actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 18px 0; }
+          .button { border: 0; cursor: pointer; display: inline-block; background: #2563eb; color: #fff; text-decoration: none; padding: 12px 16px; border-radius: 6px; font-weight: 700; font-size: 14px; }
+          .button.secondary { background: #16a34a; }
+          .draft-card { background: #f8fafc; border: 1px solid #dde2ec; border-radius: 8px; padding: 12px 14px; }
+          .draft-card p { margin: 6px 0; overflow-wrap: anywhere; }
+          @media (max-width: 560px) {
+            body { padding: 16px; }
+            main { padding: 20px; }
+            .actions { flex-direction: column; }
+            .button { text-align: center; width: 100%; box-sizing: border-box; }
+          }
         </style>
       </head>
       <body>
@@ -49,6 +78,43 @@ function actionPage(title, message, nextDraft = null) {
           ${nextDraftHtml}
           <p>You can close this tab.</p>
         </main>
+        <script>
+          const nextDraft = ${nextDraftPayload};
+          const copyButton = document.getElementById('copy-rich-email');
+
+          async function copyRichEmail() {
+            if (!nextDraft) return;
+
+            const plainText = [
+              'To: ' + nextDraft.to,
+              'Subject: ' + nextDraft.subject,
+              '',
+              nextDraft.body
+            ].join('\\n');
+
+            try {
+              if (navigator.clipboard && window.ClipboardItem) {
+                await navigator.clipboard.write([
+                  new ClipboardItem({
+                    'text/html': new Blob([nextDraft.htmlBody], { type: 'text/html' }),
+                    'text/plain': new Blob([plainText], { type: 'text/plain' })
+                  })
+                ]);
+              } else {
+                await navigator.clipboard.writeText(plainText);
+              }
+
+              copyButton.textContent = 'Rich Email Copied';
+            } catch (error) {
+              copyButton.textContent = 'Copy failed';
+              alert('Copy failed. Please select the email body manually from HankoFlow.');
+            }
+          }
+
+          if (copyButton) {
+            copyButton.addEventListener('click', copyRichEmail);
+          }
+        </script>
       </body>
     </html>
   `;
