@@ -39,8 +39,8 @@ export default function ApproverDashboard({ user, onLogout }) {
     setLoading(true);
     setError(null);
     try {
-      const data = await apiFetch('/api/requests');
-      setRequests(data.filter((request) => request.submitted_by?.toLowerCase() === user.email.toLowerCase()));
+      const data = await apiFetch(`/api/requests?submitted_by=${encodeURIComponent(user.email)}`);
+      setRequests(data);
     } catch (err) {
       console.error(err);
       setError(err.message);

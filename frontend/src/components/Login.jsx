@@ -3,6 +3,7 @@ import { ADMIN_USER } from '../config/approvers';
 
 export default function Login({ onLogin }) {
   const [email, setEmail] = useState('pamplonajeypii.45@outlook.com');
+  const [adminToken, setAdminToken] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -13,9 +14,17 @@ export default function Login({ onLogin }) {
       return;
     }
 
+    const isAdmin = normalizedEmail === ADMIN_USER.email.toLowerCase();
+
+    if (isAdmin && !adminToken.trim()) {
+      alert('Please enter the admin tester token.');
+      return;
+    }
+
     onLogin({
       email: normalizedEmail,
-      role: normalizedEmail === ADMIN_USER.email.toLowerCase() ? 'admin' : 'employee'
+      role: isAdmin ? 'admin' : 'employee',
+      adminToken: isAdmin ? adminToken.trim() : undefined
     });
   };
 
@@ -44,6 +53,21 @@ export default function Login({ onLogin }) {
               Admin tester: <code>{ADMIN_USER.email}</code>
             </small>
           </div>
+
+          {email.trim().toLowerCase() === ADMIN_USER.email.toLowerCase() && (
+            <div className="form-group">
+              <label htmlFor="admin-token-input">Admin Tester Token</label>
+              <input
+                id="admin-token-input"
+                type="password"
+                className="form-input"
+                placeholder="Enter admin token"
+                value={adminToken}
+                onChange={(e) => setAdminToken(e.target.value)}
+                required
+              />
+            </div>
+          )}
 
           <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }}>
             Enter HankoFlow

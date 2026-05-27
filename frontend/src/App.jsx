@@ -46,7 +46,7 @@ export default function App() {
       {!user ? (
         <Login onLogin={handleLogin} />
       ) : user.role === 'admin' ? (
-        <AdminDashboard onLogout={handleLogout} />
+        <AdminDashboard user={user} onLogout={handleLogout} />
       ) : (
         <ApproverDashboard user={user} onLogout={handleLogout} />
       )}

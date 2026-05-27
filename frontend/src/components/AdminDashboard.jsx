@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import StatusTracker from './StatusTracker';
 import { getLevelRole } from '../config/approvers';
 import { apiFetch } from '../utils/apiClient';
 
-export default function AdminDashboard({ onLogout }) {
+export default function AdminDashboard({ user, onLogout }) {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -11,11 +11,15 @@ export default function AdminDashboard({ onLogout }) {
   // Selected request for detail audit logs modal
   const [selectedRequest, setSelectedRequest] = useState(null);
 
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await apiFetch('/api/requests');
+      const data = await apiFetch('/api/requests', {
+        headers: {
+          'X-Admin-Token': user.adminToken
+        }
+      });
       setRequests(data);
     } catch (err) {
       console.error(err);
@@ -23,12 +27,12 @@ export default function AdminDashboard({ onLogout }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user.adminToken]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchRequests();
-  }, []);
+  }, [fetchRequests]);
 
   const getStatusBadgeClass = (status) => {
     if (status === 'approved') return 'badge-approved';
@@ -51,7 +55,10 @@ export default function AdminDashboard({ onLogout }) {
 
     try {
       await apiFetch(`/api/requests/${req.id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          'X-Admin-Token': user.adminToken
+        }
       });
 
       if (selectedRequest?.id === req.id) {

@@ -3,9 +3,14 @@ const crypto = require('crypto');
 const router = express.Router();
 const db = require('../db');
 const { buildApprovalEmailDraft, buildApproveUrl } = require('../services/outlookDraftService');
+const { isAdminRequest, requireAdmin } = require('../middleware/adminAuth');
 
 function isEmail(value) {
   return typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function normalizeEmail(value) {
+  return String(value || '').trim().toLowerCase();
 }
 
 /**
@@ -33,6 +38,11 @@ router.post('/', async (req, res) => {
 
   const client = await db.connect();
   try {
+    const submittedBy = normalizeEmail(submitted_by);
+    const supervisorEmail = normalizeEmail(supervisor_email);
+    const assistantManagerEmail = normalizeEmail(assistant_manager_email);
+    const managerEmail = normalizeEmail(manager_email);
+
     await client.query('BEGIN');
 
     // 1. Insert request
@@ -47,7 +57,7 @@ router.post('/', async (req, res) => {
          current_level
        )
        VALUES ($1, $2, $3, $4, $5, 'pending', 1) RETURNING id`,
-      [file_path, submitted_by, supervisor_email, assistant_manager_email, manager_email]
+      [file_path, submittedBy, supervisorEmail, assistantManagerEmail, managerEmail]
     );
     const requestId = requestResult.rows[0].id;
 
@@ -56,7 +66,7 @@ router.post('/', async (req, res) => {
     deadlineDate.setDate(deadlineDate.getDate() + 2);
 
     // 3. Create Level 1 approval log
-    const approverEmail = supervisor_email;
+    const approverEmail = supervisorEmail;
     const actionToken = crypto.randomBytes(32).toString('hex');
     const logResult = await client.query(
       `INSERT INTO approval_logs (request_id, level, approver_email, action, action_token, deadline)
@@ -75,7 +85,7 @@ router.post('/', async (req, res) => {
       requestId,
       level: 1,
       filePath: file_path,
-      submittedBy: submitted_by,
+      submittedBy,
       approverEmail,
       deadline: deadlineDate.toISOString(),
       approveUrl
@@ -86,10 +96,10 @@ router.post('/', async (req, res) => {
       request: {
         id: requestId,
         file_path,
-        submitted_by,
-        supervisor_email,
-        assistant_manager_email,
-        manager_email,
+        submitted_by: submittedBy,
+        supervisor_email: supervisorEmail,
+        assistant_manager_email: assistantManagerEmail,
+        manager_email: managerEmail,
         status: 'pending',
         current_level: 1,
         created_at: new Date()
@@ -100,7 +110,6 @@ router.post('/', async (req, res) => {
         level: 1,
         approver_email: approverEmail,
         action: 'pending',
-        action_token: actionToken,
         deadline: deadlineDate
       },
       email_draft: emailDraft
@@ -121,8 +130,24 @@ router.post('/', async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
-    // Get all requests
-    const { rows: requests } = await db.query('SELECT * FROM requests ORDER BY created_at DESC');
+    const submittedBy = normalizeEmail(req.query.submitted_by);
+    const admin = isAdminRequest(req);
+
+    if (!admin && !isEmail(submittedBy)) {
+      return res.status(401).json({ error: 'submitted_by query parameter or admin token required.' });
+    }
+
+    const requestQuery = admin
+      ? {
+          text: 'SELECT * FROM requests ORDER BY created_at DESC',
+          values: []
+        }
+      : {
+          text: 'SELECT * FROM requests WHERE lower(submitted_by) = $1 ORDER BY created_at DESC',
+          values: [submittedBy]
+        };
+
+    const { rows: requests } = await db.query(requestQuery.text, requestQuery.values);
 
     if (requests.length === 0) {
       return res.json([]);
@@ -130,7 +155,8 @@ router.get('/', async (req, res) => {
 
     // Get all approval logs
     const { rows: logs } = await db.query(`
-      SELECT l.*, r.sent_at AS reminder_sent_at 
+      SELECT l.id, l.request_id, l.level, l.approver_email, l.action, l.deadline, l.confirmed_at,
+             r.sent_at AS reminder_sent_at
       FROM approval_logs l
       LEFT JOIN reminders r ON r.approval_log_id = l.id
       ORDER BY l.level ASC, r.sent_at ASC
@@ -190,7 +216,18 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Request not found.' });
     }
 
-    const { rows: logs } = await db.query('SELECT * FROM approval_logs WHERE request_id = $1 ORDER BY level ASC', [id]);
+    const submittedBy = normalizeEmail(req.query.submitted_by);
+    if (!isAdminRequest(req) && normalizeEmail(requests[0].submitted_by) !== submittedBy) {
+      return res.status(401).json({ error: 'You do not have access to this request.' });
+    }
+
+    const { rows: logs } = await db.query(
+      `SELECT id, request_id, level, approver_email, action, deadline, confirmed_at
+       FROM approval_logs
+       WHERE request_id = $1
+       ORDER BY level ASC`,
+      [id]
+    );
 
     const formattedLogs = await Promise.all(logs.map(async log => {
       const { rows: reminders } = await db.query('SELECT sent_at FROM reminders WHERE approval_log_id = $1 ORDER BY sent_at ASC', [log.id]);
@@ -214,7 +251,7 @@ router.get('/:id', async (req, res) => {
  * DELETE /api/requests/:id
  * Deletes a request and all related approval logs/reminders.
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
 
   try {
