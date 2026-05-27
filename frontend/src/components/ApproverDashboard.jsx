@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../utils/apiClient';
+import StatusTracker from './StatusTracker';
+import { getLevelRole } from '../config/approvers';
 
 function buildOutlookWebUrl({ to, subject, body }) {
   return `https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -30,6 +32,7 @@ export default function ApproverDashboard({ user, onLogout }) {
   const [draftTo, setDraftTo] = useState('');
   const [draftSubject, setDraftSubject] = useState('');
   const [draftBody, setDraftBody] = useState('');
+  const [selectedRequest, setSelectedRequest] = useState(null);
   const [toast, setToast] = useState(null);
 
   const fetchMyRequests = useCallback(async () => {
@@ -266,6 +269,7 @@ export default function ApproverDashboard({ user, onLogout }) {
                   <th>Current Level</th>
                   <th>Status</th>
                   <th>Date Submitted</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -278,6 +282,15 @@ export default function ApproverDashboard({ user, onLogout }) {
                     <td>{getStatusLabel(request)}</td>
                     <td><span className={`badge ${getStatusBadgeClass(request.status)}`}>{request.status}</span></td>
                     <td>{new Date(request.created_at).toLocaleString()}</td>
+                    <td>
+                      <button
+                        className="btn btn-secondary"
+                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderRadius: '6px' }}
+                        onClick={() => setSelectedRequest(request)}
+                      >
+                        Inspect Workflow
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -285,6 +298,85 @@ export default function ApproverDashboard({ user, onLogout }) {
           </div>
         )}
       </div>
+
+      {selectedRequest && (
+        <div className="audit-details-modal" onClick={() => setSelectedRequest(null)}>
+          <div className="modal-content glass-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h2 style={{ fontSize: '1.5rem' }}>Workflow: Request #{selectedRequest.id}</h2>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                  Submitted by {selectedRequest.submitted_by}
+                </p>
+              </div>
+              <button className="close-btn" onClick={() => setSelectedRequest(null)}>x</button>
+            </div>
+
+            <div className="workflow-summary">
+              <div>
+                <span>Excel File Path</span>
+                <code>{selectedRequest.file_path}</code>
+              </div>
+              <div>
+                <span>Status</span>
+                <strong>{selectedRequest.status}</strong>
+              </div>
+              <div>
+                <span>Current Step</span>
+                <strong>{getStatusLabel(selectedRequest)}</strong>
+              </div>
+            </div>
+
+            <div style={{ margin: '1.5rem 0 1rem 0' }}>
+              <strong style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Workflow Progress</strong>
+              <StatusTracker
+                currentLevel={selectedRequest.current_level}
+                status={selectedRequest.status}
+                logs={selectedRequest.logs}
+              />
+            </div>
+
+            <div style={{ marginTop: '2rem' }}>
+              <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', borderBottom: '1px solid var(--panel-border)', paddingBottom: '0.5rem' }}>
+                Approval History
+              </h3>
+
+              <div className="logs-timeline">
+                {selectedRequest.logs && selectedRequest.logs.length > 0 ? (
+                  selectedRequest.logs.map((log) => (
+                    <div key={log.id} className={`log-item ${log.action}`}>
+                      <div className="log-title">
+                        <span>Level {log.level}: {getLevelRole(log.level)}</span>
+                        <span className={`badge ${getStatusBadgeClass(log.action)}`} style={{ fontSize: '0.65rem' }}>
+                          {log.action}
+                        </span>
+                      </div>
+                      <div className="log-desc">
+                        Approver: <code>{log.approver_email}</code>
+                      </div>
+                      <div className="log-time">
+                        {log.confirmed_at ? (
+                          <span>Confirmed at: {new Date(log.confirmed_at).toLocaleString()}</span>
+                        ) : (
+                          <span>Deadline: {new Date(log.deadline).toLocaleString()}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No approval logs generated yet.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="actions-row" style={{ marginTop: '2.5rem' }}>
+              <button className="btn btn-primary" onClick={() => setSelectedRequest(null)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
