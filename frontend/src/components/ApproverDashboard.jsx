@@ -309,11 +309,11 @@ export default function ApproverDashboard({ user, onLogout }) {
                 className={`mode-option ${approvalMode === 'parallel' ? 'active' : ''}`}
                 onClick={() => setApprovalMode('parallel')}
               >
-                Sabay / Parallel
+                Parallel
               </button>
             </div>
             <small style={{ color: 'var(--text-muted)', display: 'block', marginTop: '0.5rem' }}>
-              Sequential sends top to bottom. Sabay / Parallel prepares emails for all approvers at the same time.
+              Sequential sends top to bottom. Parallel prepares emails for all approvers at the same time.
             </small>
           </div>
 
@@ -505,7 +505,7 @@ export default function ApproverDashboard({ user, onLogout }) {
                     <td style={{ maxWidth: '360px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={request.file_path}>
                       <code>{request.file_path}</code>
                     </td>
-                    <td>{request.approval_mode === 'parallel' ? 'Sabay' : 'Sequential'}</td>
+                    <td>{request.approval_mode === 'parallel' ? 'Parallel' : 'Sequential'}</td>
                     <td>{getStatusLabel(request)}</td>
                     <td><span className={`badge ${getStatusBadgeClass(request.status)}`}>{request.status}</span></td>
                     <td>{new Date(request.created_at).toLocaleString()}</td>
@@ -546,7 +546,7 @@ export default function ApproverDashboard({ user, onLogout }) {
               </div>
               <div>
                 <span>Mode</span>
-                <strong>{selectedRequest.approval_mode === 'parallel' ? 'Sabay / Parallel' : 'Sequential'}</strong>
+                <strong>{selectedRequest.approval_mode === 'parallel' ? 'Parallel' : 'Sequential'}</strong>
               </div>
               <div>
                 <span>Status</span>
