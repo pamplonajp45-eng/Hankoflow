@@ -3,7 +3,7 @@ export const APPROVER_LEVELS = [
     level: 1,
     role: 'Supervisor',
     label: 'Supervisor (Level 1 Approver)',
-    email: import.meta.env.VITE_APPROVER_LEVEL_1_EMAIL || 'supervisor@company.com'
+    email: import.meta.env.VITE_APPROVER_LEVEL_1_EMAIL || 'pamplonajeypii.45@outlook.com'
   },
   {
     level: 2,

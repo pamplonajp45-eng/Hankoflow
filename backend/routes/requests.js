@@ -2,18 +2,33 @@ const express = require('express');
 const crypto = require('crypto');
 const router = express.Router();
 const db = require('../db');
-const { APPROVERS } = require('../config/approvers');
 const { buildApprovalEmailDraft, buildApproveUrl } = require('../services/outlookDraftService');
+
+function isEmail(value) {
+  return typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
 
 /**
  * POST /api/requests
  * Creates a new document approval request.
  */
 router.post('/', async (req, res) => {
-  const { file_path, submitted_by } = req.body;
+  const {
+    file_path,
+    submitted_by,
+    supervisor_email,
+    assistant_manager_email,
+    manager_email
+  } = req.body;
 
   if (!file_path || !submitted_by) {
     return res.status(400).json({ error: 'file_path and submitted_by are required.' });
+  }
+
+  if (![submitted_by, supervisor_email, assistant_manager_email, manager_email].every(isEmail)) {
+    return res.status(400).json({
+      error: 'Valid submitted_by, supervisor_email, assistant_manager_email, and manager_email are required.'
+    });
   }
 
   const client = await db.connect();
@@ -22,9 +37,17 @@ router.post('/', async (req, res) => {
 
     // 1. Insert request
     const requestResult = await client.query(
-      `INSERT INTO requests (file_path, submitted_by, status, current_level) 
-       VALUES ($1, $2, 'pending', 1) RETURNING id`,
-      [file_path, submitted_by]
+      `INSERT INTO requests (
+         file_path,
+         submitted_by,
+         supervisor_email,
+         assistant_manager_email,
+         manager_email,
+         status,
+         current_level
+       )
+       VALUES ($1, $2, $3, $4, $5, 'pending', 1) RETURNING id`,
+      [file_path, submitted_by, supervisor_email, assistant_manager_email, manager_email]
     );
     const requestId = requestResult.rows[0].id;
 
@@ -33,7 +56,7 @@ router.post('/', async (req, res) => {
     deadlineDate.setDate(deadlineDate.getDate() + 2);
 
     // 3. Create Level 1 approval log
-    const approverEmail = APPROVERS[1];
+    const approverEmail = supervisor_email;
     const actionToken = crypto.randomBytes(32).toString('hex');
     const logResult = await client.query(
       `INSERT INTO approval_logs (request_id, level, approver_email, action, action_token, deadline)
@@ -64,6 +87,9 @@ router.post('/', async (req, res) => {
         id: requestId,
         file_path,
         submitted_by,
+        supervisor_email,
+        assistant_manager_email,
+        manager_email,
         status: 'pending',
         current_level: 1,
         created_at: new Date()

@@ -37,7 +37,7 @@ export default function App() {
           {user && (
             <div className="user-badge">
               <span className="badge-dot"></span>
-              <span>{user.role === 'admin' ? 'Administrator' : 'Approver'}</span>
+              <span>{user.role === 'admin' ? 'Administrator' : 'Employee'}</span>
             </div>
           )}
         </div>

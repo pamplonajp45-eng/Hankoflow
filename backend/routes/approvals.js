@@ -2,7 +2,6 @@ const express = require('express');
 const crypto = require('crypto');
 const router = express.Router();
 const db = require('../db');
-const { APPROVERS } = require('../config/approvers');
 const { buildApprovalEmailDraft, buildApproveUrl } = require('../services/outlookDraftService');
 
 function escapeHtml(value) {
@@ -20,7 +19,7 @@ function actionPage(title, message, nextDraft = null) {
           <hr />
           <h2>Next step</h2>
           <p>Send the next approval request from Outlook.</p>
-          <p><a class="button" href="${escapeHtml(nextDraft.mailto)}">Open Next Outlook Email</a></p>
+          <p><a class="button" href="${escapeHtml(nextDraft.outlookWebUrl || nextDraft.mailto)}">Open Next Outlook Email</a></p>
           <p><strong>To:</strong> ${escapeHtml(nextDraft.to)}</p>
           <p><strong>Subject:</strong> ${escapeHtml(nextDraft.subject)}</p>
           <textarea readonly>${escapeHtml(nextDraft.body)}</textarea>
@@ -33,7 +32,7 @@ function actionPage(title, message, nextDraft = null) {
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>${title}</title>
+        <title>${escapeHtml(title)}</title>
         <style>
           body { font-family: Arial, sans-serif; background: #f6f7fb; margin: 0; padding: 40px; color: #172033; }
           main { max-width: 620px; margin: 0 auto; background: #fff; border: 1px solid #dde2ec; border-radius: 8px; padding: 28px; }
@@ -67,7 +66,9 @@ async function approveLog(client, log, request) {
 
   if (log.level < 3) {
     const nextLevel = log.level + 1;
-    const nextApproverEmail = APPROVERS[nextLevel];
+    const nextApproverEmail = nextLevel === 2
+      ? request.assistant_manager_email || process.env.APPROVER_LEVEL_2_EMAIL || 'assistantmanager@company.com'
+      : request.manager_email || process.env.APPROVER_LEVEL_3_EMAIL || 'manager@company.com';
     const nextDeadline = new Date();
     nextDeadline.setDate(nextDeadline.getDate() + 2);
     const nextActionToken = crypto.randomBytes(32).toString('hex');

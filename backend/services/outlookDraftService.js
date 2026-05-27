@@ -37,12 +37,14 @@ function buildApprovalEmailDraft({
   ].join('\n');
 
   const mailto = `mailto:${encodeURIComponent(approverEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const outlookWebUrl = `https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(approverEmail)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
   return {
     to: approverEmail,
     subject,
     body,
-    mailto
+    mailto,
+    outlookWebUrl
   };
 }
 

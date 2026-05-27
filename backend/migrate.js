@@ -58,10 +58,20 @@ async function runMigration() {
         id SERIAL PRIMARY KEY,
         file_path VARCHAR(500) NOT NULL,
         submitted_by VARCHAR(255) NOT NULL,
+        supervisor_email VARCHAR(255),
+        assistant_manager_email VARCHAR(255),
+        manager_email VARCHAR(255),
         status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
         current_level INT NOT NULL DEFAULT 1,
         created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
+    `);
+
+    await client.query(`
+      ALTER TABLE requests
+      ADD COLUMN IF NOT EXISTS supervisor_email VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS assistant_manager_email VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS manager_email VARCHAR(255);
     `);
 
     // Create approval_logs table
