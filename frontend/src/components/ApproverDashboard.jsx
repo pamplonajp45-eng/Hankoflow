@@ -32,6 +32,7 @@ export default function ApproverDashboard({ user, onLogout }) {
   const [draftTo, setDraftTo] = useState('');
   const [draftSubject, setDraftSubject] = useState('');
   const [draftBody, setDraftBody] = useState('');
+  const [draftReviewed, setDraftReviewed] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [toast, setToast] = useState(null);
 
@@ -74,6 +75,7 @@ export default function ApproverDashboard({ user, onLogout }) {
     e.preventDefault();
     setCreating(true);
     setEmailDraft(null);
+    setDraftReviewed(false);
 
     try {
       const result = await apiFetch('/api/requests', {
@@ -95,7 +97,7 @@ export default function ApproverDashboard({ user, onLogout }) {
       setDraftTo(result.email_draft.to);
       setDraftSubject(result.email_draft.subject);
       setDraftBody(result.email_draft.body);
-      showToast(`Request #${result.request.id} created. Review the draft, then open Outlook.`);
+      showToast(`Request #${result.request.id} created. No email was sent. Review the draft, then open Outlook.`);
       fetchMyRequests();
     } catch (err) {
       alert(`Create Request Error: ${err.message}`);
@@ -114,6 +116,15 @@ export default function ApproverDashboard({ user, onLogout }) {
 
     await navigator.clipboard.writeText(draftText);
     showToast('Outlook draft copied.');
+  };
+
+  const handleOpenOutlook = () => {
+    if (!draftReviewed) {
+      alert('Please review the draft first.');
+      return;
+    }
+
+    window.open(editableOutlookUrl, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -193,7 +204,7 @@ export default function ApproverDashboard({ user, onLogout }) {
           </div>
 
           <button type="submit" className="btn btn-primary" disabled={creating}>
-            {creating ? 'Creating...' : 'Create Outlook Request'}
+            {creating ? 'Creating...' : 'Create Request and Draft'}
           </button>
         </form>
 
@@ -206,13 +217,20 @@ export default function ApproverDashboard({ user, onLogout }) {
             </div>
           ) : (
             <div className="email-draft-box">
+              <div className="draft-safety-note">
+                Request created. No email has been sent yet. Edit and review the draft below before opening Outlook.
+              </div>
+
               <div className="form-group">
                 <label>To</label>
                 <input
                   type="email"
                   className="form-input"
                   value={draftTo}
-                  onChange={(e) => setDraftTo(e.target.value)}
+                  onChange={(e) => {
+                    setDraftTo(e.target.value);
+                    setDraftReviewed(false);
+                  }}
                 />
               </div>
 
@@ -222,7 +240,10 @@ export default function ApproverDashboard({ user, onLogout }) {
                   type="text"
                   className="form-input"
                   value={draftSubject}
-                  onChange={(e) => setDraftSubject(e.target.value)}
+                  onChange={(e) => {
+                    setDraftSubject(e.target.value);
+                    setDraftReviewed(false);
+                  }}
                 />
               </div>
 
@@ -231,22 +252,34 @@ export default function ApproverDashboard({ user, onLogout }) {
                 <textarea
                   className="form-input draft-preview"
                   value={draftBody}
-                  onChange={(e) => setDraftBody(e.target.value)}
+                  onChange={(e) => {
+                    setDraftBody(e.target.value);
+                    setDraftReviewed(false);
+                  }}
                 />
               </div>
+
+              <label className="review-check">
+                <input
+                  type="checkbox"
+                  checked={draftReviewed}
+                  onChange={(e) => setDraftReviewed(e.target.checked)}
+                />
+                <span>I reviewed this draft and I am ready to open it in Outlook.</span>
+              </label>
 
               <div className="actions-row">
                 <button type="button" className="btn btn-secondary" onClick={handleCopyDraft}>
                   Copy Draft
                 </button>
-                <a
+                <button
+                  type="button"
                   className="btn btn-success"
-                  href={editableOutlookUrl}
-                  target="_blank"
-                  rel="noreferrer"
+                  onClick={handleOpenOutlook}
+                  disabled={!draftReviewed || !editableOutlookUrl}
                 >
                   Open in Outlook
-                </a>
+                </button>
               </div>
             </div>
           )}
