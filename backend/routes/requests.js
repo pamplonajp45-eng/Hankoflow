@@ -2,8 +2,8 @@ const express = require('express');
 const crypto = require('crypto');
 const router = express.Router();
 const db = require('../db');
-const { triggerApprovalNotification } = require('../services/supabaseFunctionService');
 const { APPROVERS } = require('../config/approvers');
+const { buildApprovalEmailDraft, buildApproveUrl } = require('../services/outlookDraftService');
 
 /**
  * POST /api/requests
@@ -46,16 +46,17 @@ router.post('/', async (req, res) => {
 
     console.log(`Successfully created request ID ${requestId} and Level 1 approval log.`);
 
-    // 4. Trigger Supabase Edge Function notification for Level 1 Approver.
-    triggerApprovalNotification({
+    // 4. Return an Outlook-ready draft. The employee sends this from their own mailbox.
+    const approveUrl = buildApproveUrl(actionToken);
+    const emailDraft = buildApprovalEmailDraft({
       requestId,
       level: 1,
       filePath: file_path,
       submittedBy: submitted_by,
       approverEmail,
       deadline: deadlineDate.toISOString(),
-      approveUrl: `${process.env.PUBLIC_API_URL || 'http://localhost:5000'}/api/approvals/email/${actionToken}/approve`
-    }).catch(err => console.error('Failed to trigger Supabase approval mailer:', err));
+      approveUrl
+    });
 
     return res.status(201).json({
       message: 'Request submitted successfully.',
@@ -75,7 +76,8 @@ router.post('/', async (req, res) => {
         action: 'pending',
         action_token: actionToken,
         deadline: deadlineDate
-      }
+      },
+      email_draft: emailDraft
     });
 
   } catch (error) {

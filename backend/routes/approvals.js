@@ -2,10 +2,31 @@ const express = require('express');
 const crypto = require('crypto');
 const router = express.Router();
 const db = require('../db');
-const { triggerApprovalNotification, triggerFinalStatusNotification } = require('../services/supabaseFunctionService');
 const { APPROVERS } = require('../config/approvers');
+const { buildApprovalEmailDraft, buildApproveUrl } = require('../services/outlookDraftService');
 
-function actionPage(title, message) {
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function actionPage(title, message, nextDraft = null) {
+  const nextDraftHtml = nextDraft
+    ? `
+          <hr />
+          <h2>Next step</h2>
+          <p>Send the next approval request from Outlook.</p>
+          <p><a class="button" href="${escapeHtml(nextDraft.mailto)}">Open Next Outlook Email</a></p>
+          <p><strong>To:</strong> ${escapeHtml(nextDraft.to)}</p>
+          <p><strong>Subject:</strong> ${escapeHtml(nextDraft.subject)}</p>
+          <textarea readonly>${escapeHtml(nextDraft.body)}</textarea>
+      `
+    : '';
+
   return `
     <!doctype html>
     <html>
@@ -17,13 +38,18 @@ function actionPage(title, message) {
           body { font-family: Arial, sans-serif; background: #f6f7fb; margin: 0; padding: 40px; color: #172033; }
           main { max-width: 620px; margin: 0 auto; background: #fff; border: 1px solid #dde2ec; border-radius: 8px; padding: 28px; }
           h1 { margin-top: 0; font-size: 24px; }
+          h2 { font-size: 18px; margin-top: 24px; }
           p { line-height: 1.55; }
+          hr { border: 0; border-top: 1px solid #dde2ec; margin: 24px 0; }
+          .button { display: inline-block; background: #2563eb; color: #fff; text-decoration: none; padding: 12px 16px; border-radius: 6px; font-weight: 700; }
+          textarea { box-sizing: border-box; width: 100%; min-height: 220px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; font-family: Consolas, monospace; font-size: 13px; white-space: pre-wrap; }
         </style>
       </head>
       <body>
         <main>
-          <h1>${title}</h1>
-          <p>${message}</p>
+          <h1>${escapeHtml(title)}</h1>
+          <p>${escapeHtml(message)}</p>
+          ${nextDraftHtml}
           <p>You can close this tab.</p>
         </main>
       </body>
@@ -59,20 +85,22 @@ async function approveLog(client, log, request) {
 
     await client.query('COMMIT');
 
-    triggerApprovalNotification({
+    const approveUrl = buildApproveUrl(nextActionToken);
+    const nextEmailDraft = buildApprovalEmailDraft({
       requestId: request.id,
       level: nextLevel,
       filePath: request.file_path,
       submittedBy: request.submitted_by,
       approverEmail: nextApproverEmail,
       deadline: nextDeadline.toISOString(),
-      approveUrl: `${process.env.PUBLIC_API_URL || 'http://localhost:5000'}/api/approvals/email/${nextActionToken}/approve`
-    }).catch(err => console.error('Failed to trigger Supabase approval mailer:', err));
+      approveUrl
+    });
 
     return {
       message: 'Approval confirmed. Escalated to next level.',
       nextLevel,
-      nextApprover: nextApproverEmail
+      nextApprover: nextApproverEmail,
+      emailDraft: nextEmailDraft
     };
   }
 
@@ -82,13 +110,6 @@ async function approveLog(client, log, request) {
   );
 
   await client.query('COMMIT');
-
-  triggerFinalStatusNotification({
-    requestId: request.id,
-    status: 'approved',
-    filePath: request.file_path,
-    submittedBy: request.submitted_by
-  }).catch(err => console.error('Failed to trigger Supabase final status mailer:', err));
 
   return {
     message: 'Final approval confirmed. Request is approved.',
@@ -110,14 +131,6 @@ async function rejectLog(client, log, request) {
   );
 
   await client.query('COMMIT');
-
-  triggerFinalStatusNotification({
-    requestId: request.id,
-    status: 'rejected',
-    filePath: request.file_path,
-    submittedBy: request.submitted_by,
-    levelRejected: log.level
-  }).catch(err => console.error('Failed to trigger Supabase final status mailer:', err));
 
   return {
     message: 'Request rejected successfully.',
@@ -218,7 +231,7 @@ router.get('/email/:token/approve', async (req, res) => {
   const result = await processApprovalByToken(req.params.token, 'approve');
   const title = result.statusCode === 200 ? 'Approval Recorded' : 'Approval Link Error';
   const message = result.body.message || result.body.error;
-  return res.status(result.statusCode).send(actionPage(title, message));
+  return res.status(result.statusCode).send(actionPage(title, message, result.body.emailDraft));
 });
 
 router.get('/email/:token/reject', async (req, res) => {

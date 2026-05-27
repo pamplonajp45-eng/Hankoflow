@@ -11,6 +11,7 @@ export default function ApproverDashboard({ user, onLogout }) {
   const [simFilePath, setSimFilePath] = useState('\\\\company-share\\finance\\April_Invoices_v2.xlsx');
   const [simEmployee, setSimEmployee] = useState('employee@company.com');
   const [simulating, setSimulating] = useState(false);
+  const [emailDraft, setEmailDraft] = useState(null);
   const [toast, setToast] = useState(null);
 
   const fetchPending = useCallback(async () => {
@@ -51,18 +52,18 @@ export default function ApproverDashboard({ user, onLogout }) {
     }
   };
 
-  const handleReject = async (logId) => {
-    try {
-      await apiFetch(`/api/approvals/${logId}/reject`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
+  const handleCopyDraft = async () => {
+    if (!emailDraft) return;
 
-      showToast('Workflow rejected and submitter notified.', 'error');
-      fetchPending();
-    } catch (err) {
-      alert(`Error: ${err.message}`);
-    }
+    const draftText = [
+      `To: ${emailDraft.to}`,
+      `Subject: ${emailDraft.subject}`,
+      '',
+      emailDraft.body
+    ].join('\n');
+
+    await navigator.clipboard.writeText(draftText);
+    showToast('Outlook email draft copied.');
   };
 
   const handleSimulateSubmit = async (e) => {
@@ -78,8 +79,12 @@ export default function ApproverDashboard({ user, onLogout }) {
         })
       });
 
-      showToast(`Simulated request #${result.request.id} created.`);
-      setShowSimulate(false);
+      setEmailDraft(result.email_draft);
+      showToast(`Request #${result.request.id} created. Open the Outlook draft to send it.`);
+
+      if (result.email_draft?.mailto) {
+        window.location.href = result.email_draft.mailto;
+      }
 
       if (user.email === APPROVER_LEVELS[0].email) {
         fetchPending();
@@ -113,7 +118,7 @@ export default function ApproverDashboard({ user, onLogout }) {
         </div>
         <div style={{ display: 'flex', gap: '1rem' }}>
           <button className="btn btn-secondary submit-req-btn" onClick={() => setShowSimulate(true)}>
-            Simulate Email Request
+            Create Outlook Request
           </button>
           <button className="btn btn-secondary" onClick={onLogout}>
             Sign Out
@@ -140,7 +145,6 @@ export default function ApproverDashboard({ user, onLogout }) {
               key={req.approval_log_id}
               request={req}
               onConfirm={handleConfirm}
-              onReject={handleReject}
             />
           ))}
         </div>
@@ -150,12 +154,15 @@ export default function ApproverDashboard({ user, onLogout }) {
         <div className="audit-details-modal">
           <div className="modal-content glass-panel">
             <div className="modal-header">
-              <h3>Simulate Incoming Email Request</h3>
-              <button className="close-btn" onClick={() => setShowSimulate(false)}>x</button>
+              <h3>Create Outlook Approval Request</h3>
+              <button className="close-btn" onClick={() => {
+                setShowSimulate(false);
+                setEmailDraft(null);
+              }}>x</button>
             </div>
             <form onSubmit={handleSimulateSubmit}>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-                This simulates an employee sending an Outlook email with an Excel file path. In production, the mail intake can call this same backend API directly.
+                HankoFlow creates the tracking request and prepares an Outlook email. Send that email from the employee mailbox.
               </p>
 
               <div className="form-group">
@@ -183,12 +190,36 @@ export default function ApproverDashboard({ user, onLogout }) {
                 </small>
               </div>
 
+              {emailDraft && (
+                <div className="email-draft-box">
+                  <div className="email-draft-header">
+                    <div>
+                      <strong>Outlook draft ready</strong>
+                      <div>To: {emailDraft.to}</div>
+                    </div>
+                    <div className="actions-row" style={{ margin: 0 }}>
+                      <a className="btn btn-success" href={emailDraft.mailto}>
+                        Open in Outlook
+                      </a>
+                      <button type="button" className="btn btn-secondary" onClick={handleCopyDraft}>
+                        Copy Draft
+                      </button>
+                    </div>
+                  </div>
+                  <label>Email Body</label>
+                  <textarea className="form-input draft-preview" value={emailDraft.body} readOnly />
+                </div>
+              )}
+
               <div className="actions-row" style={{ marginTop: '2rem' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowSimulate(false)}>
+                <button type="button" className="btn btn-secondary" onClick={() => {
+                  setShowSimulate(false);
+                  setEmailDraft(null);
+                }}>
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={simulating}>
-                  {simulating ? 'Submitting...' : 'Submit Request'}
+                  {simulating ? 'Creating...' : 'Create Request'}
                 </button>
               </div>
             </form>

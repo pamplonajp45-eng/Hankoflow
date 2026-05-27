@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { getLevelRole } from '../config/approvers';
 
-export default function RequestCard({ request, onConfirm, onReject }) {
+export default function RequestCard({ request, onConfirm }) {
   const [copied, setCopied] = useState(false);
   const [checkedOpen, setCheckedOpen] = useState(false);
   const [checkedHanko, setCheckedHanko] = useState(false);
@@ -22,20 +22,6 @@ export default function RequestCard({ request, onConfirm, onReject }) {
     setIsSubmitting(true);
     try {
       await onConfirm(request.approval_log_id);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleRejectAction = async () => {
-    const confirmed = window.confirm('Are you sure you want to reject this request? This will halt the entire workflow.');
-    if (!confirmed) return;
-
-    setIsSubmitting(true);
-    try {
-      await onReject(request.approval_log_id);
     } catch (err) {
       console.error(err);
     } finally {
@@ -106,14 +92,6 @@ export default function RequestCard({ request, onConfirm, onReject }) {
       </div>
 
       <div className="actions-row">
-        <button
-          onClick={handleRejectAction}
-          className="btn btn-secondary"
-          disabled={isSubmitting}
-          style={{ borderColor: 'rgba(239, 68, 68, 0.4)', color: 'hsl(345, 85%, 65%)' }}
-        >
-          Reject Request
-        </button>
         <button
           onClick={handleConfirmAction}
           className="btn btn-success"

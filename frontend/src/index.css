@@ -528,6 +528,35 @@ h1, h2, h3, h4, h5, h6 {
   gap: 1rem;
 }
 
+.email-draft-box {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  border-radius: 8px;
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.email-draft-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  color: var(--text-secondary);
+}
+
+.email-draft-header strong {
+  color: var(--text-primary);
+}
+
+.draft-preview {
+  min-height: 220px;
+  resize: vertical;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
 /* Admin Dashboard Table */
 .admin-card {
   padding: 1.75rem;
