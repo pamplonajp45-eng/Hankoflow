@@ -36,10 +36,16 @@ export default function ApproverDashboard({ user, onLogout }) {
   const [toast, setToast] = useState(null);
 
   const fetchMyRequests = useCallback(async () => {
+    setRequests([]);
+    setSelectedRequest(null);
     setLoading(true);
     setError(null);
     try {
-      const data = await apiFetch(`/api/requests?submitted_by=${encodeURIComponent(user.email)}`);
+      const data = await apiFetch('/api/requests', {
+        headers: {
+          'X-User-Email': user.email
+        }
+      });
       setRequests(data);
     } catch (err) {
       console.error(err);
@@ -72,7 +78,10 @@ export default function ApproverDashboard({ user, onLogout }) {
     try {
       const result = await apiFetch('/api/requests', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Email': user.email
+        },
         body: JSON.stringify({
           file_path: filePath,
           submitted_by: user.email,

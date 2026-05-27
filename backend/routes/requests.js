@@ -13,6 +13,10 @@ function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+function getSignedInEmployeeEmail(req) {
+  return normalizeEmail(req.get('x-user-email'));
+}
+
 /**
  * POST /api/requests
  * Creates a new document approval request.
@@ -30,6 +34,15 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'file_path and submitted_by are required.' });
   }
 
+  const signedInEmail = getSignedInEmployeeEmail(req);
+  if (!isEmail(signedInEmail)) {
+    return res.status(401).json({ error: 'Signed-in employee email required.' });
+  }
+
+  if (signedInEmail !== normalizeEmail(submitted_by)) {
+    return res.status(403).json({ error: 'You can only create workflows for your signed-in email.' });
+  }
+
   if (![submitted_by, supervisor_email, assistant_manager_email, manager_email].every(isEmail)) {
     return res.status(400).json({
       error: 'Valid submitted_by, supervisor_email, assistant_manager_email, and manager_email are required.'
@@ -38,7 +51,7 @@ router.post('/', async (req, res) => {
 
   const client = await db.connect();
   try {
-    const submittedBy = normalizeEmail(submitted_by);
+    const submittedBy = signedInEmail;
     const supervisorEmail = normalizeEmail(supervisor_email);
     const assistantManagerEmail = normalizeEmail(assistant_manager_email);
     const managerEmail = normalizeEmail(manager_email);
@@ -130,11 +143,11 @@ router.post('/', async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
-    const submittedBy = normalizeEmail(req.query.submitted_by);
     const admin = isAdminRequest(req);
+    const submittedBy = getSignedInEmployeeEmail(req);
 
     if (!admin && !isEmail(submittedBy)) {
-      return res.status(401).json({ error: 'submitted_by query parameter or admin token required.' });
+      return res.status(401).json({ error: 'Signed-in employee email or admin token required.' });
     }
 
     const requestQuery = admin
@@ -216,8 +229,8 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Request not found.' });
     }
 
-    const submittedBy = normalizeEmail(req.query.submitted_by);
-    if (!isAdminRequest(req) && normalizeEmail(requests[0].submitted_by) !== submittedBy) {
+    const signedInEmail = getSignedInEmployeeEmail(req);
+    if (!isAdminRequest(req) && normalizeEmail(requests[0].submitted_by) !== signedInEmail) {
       return res.status(401).json({ error: 'You do not have access to this request.' });
     }
 
