@@ -3,18 +3,28 @@ import Login from './components/Login';
 import ApproverDashboard from './components/ApproverDashboard';
 import AdminDashboard from './components/AdminDashboard';
 
-export default function App() {
-  const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem('approvals_session');
-    if (savedUser) {
-      try {
-        return JSON.parse(savedUser);
-      } catch {
-        localStorage.removeItem('approvals_session');
-      }
+function restoreSession() {
+  const savedUser = localStorage.getItem('approvals_session');
+  if (!savedUser) return null;
+
+  try {
+    const parsedUser = JSON.parse(savedUser);
+    const isInvalidAdminSession = parsedUser?.role === 'admin' && !parsedUser?.adminToken;
+
+    if (!parsedUser?.email || isInvalidAdminSession) {
+      localStorage.removeItem('approvals_session');
+      return null;
     }
+
+    return parsedUser;
+  } catch {
+    localStorage.removeItem('approvals_session');
     return null;
-  });
+  }
+}
+
+export default function App() {
+  const [user, setUser] = useState(restoreSession);
 
   const handleLogin = (userInfo) => {
     setUser(userInfo);
