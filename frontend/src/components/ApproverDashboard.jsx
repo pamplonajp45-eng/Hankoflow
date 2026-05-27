@@ -164,7 +164,10 @@ export default function ApproverDashboard({ user, onLogout }) {
       setDraftSubject(drafts[0].subject);
       setDraftBody(drafts[0].body);
       setDraftApproveUrl(drafts[0].approveUrl);
-      showToast(`Draft #${result.request.id} created with ${drafts.length} email draft${drafts.length === 1 ? '' : 's'}.`);
+      const draftLabel = approvalMode === 'parallel'
+        ? '1 parallel email draft for all approvers'
+        : `${drafts.length} email draft${drafts.length === 1 ? '' : 's'}`;
+      showToast(`Draft #${result.request.id} created with ${draftLabel}.`);
     } catch (err) {
       alert(`Create Request Error: ${err.message}`);
     } finally {
@@ -220,7 +223,9 @@ export default function ApproverDashboard({ user, onLogout }) {
   const handleMarkSent = async () => {
     if (!draftRequestId) return;
 
-    const label = emailDrafts.length > 1 ? 'these Outlook emails' : 'this Outlook email';
+    const label = approvalMode === 'parallel'
+      ? 'this parallel Outlook email'
+      : emailDrafts.length > 1 ? 'these Outlook emails' : 'this Outlook email';
     const confirmed = window.confirm(`Confirm that you sent ${label} to the approver${emailDrafts.length === 1 ? '' : 's'}?`);
     if (!confirmed) return;
 

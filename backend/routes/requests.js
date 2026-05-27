@@ -42,6 +42,43 @@ function buildEmailDraft({ requestId, level, filePath, submittedBy, approverEmai
   });
 }
 
+function buildParallelEmailDraft({ requestId, filePath, submittedBy, approverEmails, deadline, approvalItems }) {
+  const to = approverEmails.join('; ');
+  const subject = `HankoFlow Approval Request #${requestId}`;
+  const body = [
+    `Hello,`,
+    ``,
+    `Please approve this Excel document request.`,
+    ``,
+    `Request ID: #${requestId}`,
+    `Submitted by: ${submittedBy}`,
+    `Excel file path: ${filePath}`,
+    `Approval mode: Parallel`,
+    `Deadline: ${deadline.toLocaleString()}`,
+    ``,
+    `Steps:`,
+    `1. Open the Excel file path above.`,
+    `2. Apply your Hanko/signature and save the file.`,
+    `3. Find your email below and click only your own approval link after saving.`,
+    ``,
+    `Approval Links:`,
+    ...approvalItems.map((item, index) => `${index + 1}. ${item.email}\n${item.approveUrl}`),
+    ``,
+    `Thank you.`
+  ].join('\n');
+
+  const outlookWebUrl = `https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+  return {
+    to,
+    subject,
+    body,
+    approveUrl: approvalItems[0]?.approveUrl || '',
+    approvalLinks: approvalItems,
+    outlookWebUrl
+  };
+}
+
 /**
  * POST /api/requests
  * Creates a new document approval request.
@@ -147,6 +184,22 @@ router.post('/', async (req, res) => {
       }));
     }
 
+    const responseDrafts = approvalMode === 'parallel'
+      ? [
+          buildParallelEmailDraft({
+            requestId,
+            filePath: file_path,
+            submittedBy,
+            approverEmails,
+            deadline: deadlineDate,
+            approvalItems: emailDrafts.map((draft) => ({
+              email: draft.to,
+              approveUrl: draft.approveUrl
+            }))
+          })
+        ]
+      : emailDrafts;
+
     await client.query('COMMIT');
 
     console.log(`Successfully created request ID ${requestId} with ${approvalMode} approval mode.`);
@@ -168,8 +221,8 @@ router.post('/', async (req, res) => {
       },
       approval_log: approvalLogs[0],
       approval_logs: approvalLogs,
-      email_draft: emailDrafts[0],
-      email_drafts: emailDrafts
+      email_draft: responseDrafts[0],
+      email_drafts: responseDrafts
     });
 
   } catch (error) {
