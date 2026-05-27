@@ -80,7 +80,45 @@ SUPABASE_FUNCTION_AUTH_TOKEN=replace-with-the-same-approval-mailer-token
 PUBLIC_API_URL=https://your-public-backend-url
 ```
 
-For local testing, `PUBLIC_API_URL=http://localhost:5000` works only if the approver opens the email on the same machine running the backend. For client testing, deploy the backend first and use that public URL.
+For local testing, `PUBLIC_API_URL=http://localhost:5000` works only if the approver opens the email on the same machine running the backend. For Vercel backend testing, set `PUBLIC_API_URL` to your backend Vercel URL.
+
+## Vercel Backend
+
+Create a second Vercel project for the backend using the same GitHub repository:
+
+```text
+Root Directory: backend
+Framework Preset: Other
+Install Command: npm install
+Build Command: leave empty
+Output Directory: leave empty
+```
+
+Set backend environment variables in Vercel:
+
+```env
+FRONTEND_URL=https://your-frontend.vercel.app
+FRONTEND_URLS=https://your-frontend.vercel.app,http://localhost:5173
+PUBLIC_API_URL=https://your-backend.vercel.app
+DATABASE_URL=your_supabase_pooler_url
+APPROVER_LEVEL_1_EMAIL=outlook_E858AC206AAB4EFA@outlook.com
+APPROVER_LEVEL_2_EMAIL=assistantmanager@company.com
+APPROVER_LEVEL_3_EMAIL=manager@company.com
+SUPABASE_APPROVAL_MAILER_URL=https://lcfadiceswkkokyvvgoc.functions.supabase.co/approval-mailer
+SUPABASE_FUNCTION_AUTH_TOKEN=replace-with-the-same-approval-mailer-token
+```
+
+After the backend deploys, open:
+
+```text
+https://your-backend.vercel.app/api/health
+```
+
+Then set the frontend Vercel project environment variable:
+
+```env
+VITE_API_BASE_URL=https://your-backend.vercel.app
+```
 
 ## Configuration
 

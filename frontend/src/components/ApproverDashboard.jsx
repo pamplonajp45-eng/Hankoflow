@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import RequestCard from './RequestCard';
 import { APPROVER_LEVELS } from '../config/approvers';
+import { apiUrl } from '../config/api';
 
 export default function ApproverDashboard({ user, onLogout }) {
   const [requests, setRequests] = useState([]);
@@ -16,7 +17,7 @@ export default function ApproverDashboard({ user, onLogout }) {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/approvals/pending?email=${encodeURIComponent(user.email)}`);
+      const response = await fetch(apiUrl(`/api/approvals/pending?email=${encodeURIComponent(user.email)}`));
       if (!response.ok) throw new Error('Failed to fetch pending requests.');
       const data = await response.json();
       setRequests(data);
@@ -40,7 +41,7 @@ export default function ApproverDashboard({ user, onLogout }) {
 
   const handleConfirm = async (logId) => {
     try {
-      const response = await fetch(`/api/approvals/${logId}/confirm`, {
+      const response = await fetch(apiUrl(`/api/approvals/${logId}/confirm`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -57,7 +58,7 @@ export default function ApproverDashboard({ user, onLogout }) {
 
   const handleReject = async (logId) => {
     try {
-      const response = await fetch(`/api/approvals/${logId}/reject`, {
+      const response = await fetch(apiUrl(`/api/approvals/${logId}/reject`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -76,7 +77,7 @@ export default function ApproverDashboard({ user, onLogout }) {
     e.preventDefault();
     setSimulating(true);
     try {
-      const response = await fetch('/api/requests', {
+      const response = await fetch(apiUrl('/api/requests'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

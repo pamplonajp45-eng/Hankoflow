@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import StatusTracker from './StatusTracker';
 import { getLevelRole } from '../config/approvers';
+import { apiUrl } from '../config/api';
 
 export default function AdminDashboard({ onLogout }) {
   const [requests, setRequests] = useState([]);
@@ -14,7 +15,7 @@ export default function AdminDashboard({ onLogout }) {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/requests');
+      const response = await fetch(apiUrl('/api/requests'));
       if (!response.ok) throw new Error('Failed to fetch request history.');
       const data = await response.json();
       setRequests(data);
@@ -51,7 +52,7 @@ export default function AdminDashboard({ onLogout }) {
     if (!confirmed) return;
 
     try {
-      const response = await fetch(`/api/requests/${req.id}`, {
+      const response = await fetch(apiUrl(`/api/requests/${req.id}`), {
         method: 'DELETE'
       });
       const result = await response.json();
