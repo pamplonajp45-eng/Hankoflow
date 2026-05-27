@@ -7,6 +7,27 @@ function buildOutlookWebUrl({ to, subject, body }) {
   return `https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function buildRichDraftBody(body, approveUrl) {
+  const safeLines = body.split(/\r?\n/).map((line) => escapeHtml(line));
+  const htmlLines = safeLines.map((line) => {
+    if (approveUrl && line === escapeHtml(approveUrl)) {
+      return `<a href="${escapeHtml(approveUrl)}">Approval Link</a>`;
+    }
+    return line;
+  });
+
+  return `<div>${htmlLines.join('<br>')}</div>`;
+}
+
 function getStatusLabel(request) {
   if (request.status === 'approved') return 'Completed';
   if (request.status === 'rejected') return 'Stopped';
@@ -33,6 +54,7 @@ export default function ApproverDashboard({ user, onLogout }) {
   const [draftTo, setDraftTo] = useState('');
   const [draftSubject, setDraftSubject] = useState('');
   const [draftBody, setDraftBody] = useState('');
+  const [draftApproveUrl, setDraftApproveUrl] = useState('');
   const [draftReviewed, setDraftReviewed] = useState(false);
   const [outlookOpened, setOutlookOpened] = useState(false);
   const [markingSent, setMarkingSent] = useState(false);
@@ -107,6 +129,7 @@ export default function ApproverDashboard({ user, onLogout }) {
       setDraftTo(result.email_draft.to);
       setDraftSubject(result.email_draft.subject);
       setDraftBody(result.email_draft.body);
+      setDraftApproveUrl(result.email_draft.approveUrl);
       showToast(`Draft #${result.request.id} created. It will appear in My Requests after you confirm the Outlook email was sent.`);
     } catch (err) {
       alert(`Create Request Error: ${err.message}`);
@@ -125,6 +148,29 @@ export default function ApproverDashboard({ user, onLogout }) {
 
     await navigator.clipboard.writeText(draftText);
     showToast('Outlook draft copied.');
+  };
+
+  const handleCopyRichDraft = async () => {
+    const html = buildRichDraftBody(draftBody, draftApproveUrl);
+    const text = [
+      `To: ${draftTo}`,
+      `Subject: ${draftSubject}`,
+      '',
+      draftBody
+    ].join('\n');
+
+    if (navigator.clipboard?.write && window.ClipboardItem) {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html': new Blob([html], { type: 'text/html' }),
+          'text/plain': new Blob([text], { type: 'text/plain' })
+        })
+      ]);
+    } else {
+      await navigator.clipboard.writeText(text);
+    }
+
+    showToast('Rich email copied. Paste it into the Outlook message body.');
   };
 
   const handleOpenOutlook = () => {
@@ -158,6 +204,7 @@ export default function ApproverDashboard({ user, onLogout }) {
       setDraftTo('');
       setDraftSubject('');
       setDraftBody('');
+      setDraftApproveUrl('');
       setDraftReviewed(false);
       setOutlookOpened(false);
       fetchMyRequests();
@@ -312,6 +359,9 @@ export default function ApproverDashboard({ user, onLogout }) {
               <div className="actions-row">
                 <button type="button" className="btn btn-secondary" onClick={handleCopyDraft}>
                   Copy Draft
+                </button>
+                <button type="button" className="btn btn-secondary" onClick={handleCopyRichDraft}>
+                  Copy Rich Email
                 </button>
                 <button
                   type="button"

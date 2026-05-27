@@ -6,6 +6,15 @@ function buildApproveUrl(actionToken) {
   return `${getPublicApiUrl()}/api/approvals/a/${actionToken}`;
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function buildApprovalEmailDraft({
   requestId,
   level,
@@ -32,10 +41,35 @@ function buildApprovalEmailDraft({
     `2. Apply your Hanko/signature and save the file.`,
     `3. Click the approval link after saving.`,
     ``,
+    `Approval Link`,
+    ``,
     approveUrl,
     ``,
     `Thank you.`
   ].join('\n');
+
+  const htmlBody = `
+    <div>
+      <p>Hello,</p>
+      <p>Please approve this Excel document request.</p>
+      <p>
+        Request ID: #${requestId}<br>
+        Submitted by: ${escapeHtml(submittedBy)}<br>
+        Excel file path: ${escapeHtml(filePath)}<br>
+        Approval level: ${level}<br>
+        Deadline: ${escapeHtml(new Date(deadline).toLocaleString())}
+      </p>
+      <p>
+        Steps:<br>
+        1. Open the Excel file path above.<br>
+        2. Apply your Hanko/signature and save the file.<br>
+        3. Click the approval link after saving.
+      </p>
+      <p><a href="${escapeHtml(approveUrl)}">Approval Link</a></p>
+      <p>${escapeHtml(approveUrl)}</p>
+      <p>Thank you.</p>
+    </div>
+  `;
 
   const mailto = `mailto:${encodeURIComponent(approverEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   const outlookWebUrl = `https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(approverEmail)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -44,6 +78,7 @@ function buildApprovalEmailDraft({
     to: approverEmail,
     subject,
     body,
+    htmlBody,
     approveUrl,
     mailto,
     outlookWebUrl
