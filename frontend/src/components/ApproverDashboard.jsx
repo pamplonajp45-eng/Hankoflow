@@ -3,8 +3,36 @@ import { apiFetch } from '../utils/apiClient';
 import StatusTracker from './StatusTracker';
 import { getLevelRole } from '../config/approvers';
 
-function buildOutlookWebUrl({ to, subject, body }) {
-  return `https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function buildHtmlDraftBody(body, approveUrl) {
+  const escapedBody = escapeHtml(body)
+    .replace(/\r?\n/g, '<br>')
+    .replace(
+      escapeHtml(approveUrl),
+      `<a href="${escapeHtml(approveUrl)}">Approve Request</a>`
+    );
+
+  return `
+    <div>${escapedBody}</div>
+    <p>
+      <a href="${escapeHtml(approveUrl)}" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:6px;font-weight:bold;">
+        Approve Request
+      </a>
+    </p>
+  `;
+}
+
+function buildOutlookWebUrl({ to, subject, body, approveUrl }) {
+  const outlookBody = approveUrl ? buildHtmlDraftBody(body, approveUrl) : body;
+  return `https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(outlookBody)}`;
 }
 
 function getStatusLabel(request) {
@@ -32,6 +60,7 @@ export default function ApproverDashboard({ user, onLogout }) {
   const [draftTo, setDraftTo] = useState('');
   const [draftSubject, setDraftSubject] = useState('');
   const [draftBody, setDraftBody] = useState('');
+  const [draftApproveUrl, setDraftApproveUrl] = useState('');
   const [draftReviewed, setDraftReviewed] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [toast, setToast] = useState(null);
@@ -68,8 +97,13 @@ export default function ApproverDashboard({ user, onLogout }) {
 
   const editableOutlookUrl = useMemo(() => {
     if (!draftTo || !draftSubject || !draftBody) return '';
-    return buildOutlookWebUrl({ to: draftTo, subject: draftSubject, body: draftBody });
-  }, [draftTo, draftSubject, draftBody]);
+    return buildOutlookWebUrl({
+      to: draftTo,
+      subject: draftSubject,
+      body: draftBody,
+      approveUrl: draftApproveUrl
+    });
+  }, [draftTo, draftSubject, draftBody, draftApproveUrl]);
 
   const handleCreateRequest = async (e) => {
     e.preventDefault();
@@ -97,6 +131,7 @@ export default function ApproverDashboard({ user, onLogout }) {
       setDraftTo(result.email_draft.to);
       setDraftSubject(result.email_draft.subject);
       setDraftBody(result.email_draft.body);
+      setDraftApproveUrl(result.email_draft.approveUrl);
       showToast(`Request #${result.request.id} created. No email was sent. Review the draft, then open Outlook.`);
       fetchMyRequests();
     } catch (err) {
