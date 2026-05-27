@@ -3,7 +3,7 @@ import { ADMIN_USER } from '../config/approvers';
 
 export default function Login({ onLogin }) {
   const [mode, setMode] = useState('employee');
-  const [email, setEmail] = useState('pamplonajeypii.45@outlook.com');
+  const [email, setEmail] = useState('');
   const [adminToken, setAdminToken] = useState('');
 
   const handleSubmit = (e) => {
