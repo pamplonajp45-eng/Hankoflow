@@ -16,11 +16,15 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-function buildRichDraftBody(body, approveUrl) {
+function buildRichDraftBody(body, approvalLinks = []) {
+  const urls = approvalLinks
+    .map((item) => typeof item === 'string' ? item : item?.approveUrl)
+    .filter(Boolean);
   const safeLines = body.split(/\r?\n/).map((line) => escapeHtml(line));
   const htmlLines = safeLines.map((line) => {
-    if (approveUrl && line === escapeHtml(approveUrl)) {
-      return `<a href="${escapeHtml(approveUrl)}">Approval Link</a>`;
+    const matchingUrl = urls.find((url) => line === escapeHtml(url));
+    if (matchingUrl) {
+      return `<a href="${escapeHtml(matchingUrl)}">Approval Link</a>`;
     }
     return line;
   });
@@ -56,6 +60,7 @@ export default function ApproverDashboard({ user, onLogout }) {
   const [draftSubject, setDraftSubject] = useState('');
   const [draftBody, setDraftBody] = useState('');
   const [draftApproveUrl, setDraftApproveUrl] = useState('');
+  const [draftApprovalLinks, setDraftApprovalLinks] = useState([]);
   const [draftReviewed, setDraftReviewed] = useState(false);
   const [outlookOpened, setOutlookOpened] = useState(false);
   const [markingSent, setMarkingSent] = useState(false);
@@ -130,6 +135,7 @@ export default function ApproverDashboard({ user, onLogout }) {
     setDraftSubject(draft.subject);
     setDraftBody(draft.body);
     setDraftApproveUrl(draft.approveUrl);
+    setDraftApprovalLinks(draft.approvalLinks || (draft.approveUrl ? [draft.approveUrl] : []));
     setDraftReviewed(false);
     setOutlookOpened(false);
   };
@@ -168,6 +174,7 @@ export default function ApproverDashboard({ user, onLogout }) {
       setDraftSubject(drafts[0].subject);
       setDraftBody(drafts[0].body);
       setDraftApproveUrl(drafts[0].approveUrl);
+      setDraftApprovalLinks(drafts[0].approvalLinks || (drafts[0].approveUrl ? [drafts[0].approveUrl] : []));
       const draftLabel = approvalMode === 'parallel'
         ? '1 parallel email draft for all approvers'
         : `${drafts.length} email draft${drafts.length === 1 ? '' : 's'}`;
@@ -192,7 +199,10 @@ export default function ApproverDashboard({ user, onLogout }) {
   };
 
   const handleCopyRichDraft = async () => {
-    const html = buildRichDraftBody(draftBody, draftApproveUrl);
+    const html = buildRichDraftBody(
+      draftBody,
+      draftApprovalLinks.length ? draftApprovalLinks : [draftApproveUrl]
+    );
     const text = [
       `To: ${draftTo}`,
       `Subject: ${draftSubject}`,
@@ -250,6 +260,7 @@ export default function ApproverDashboard({ user, onLogout }) {
       setDraftSubject('');
       setDraftBody('');
       setDraftApproveUrl('');
+      setDraftApprovalLinks([]);
       setDraftReviewed(false);
       setOutlookOpened(false);
       fetchMyRequests();

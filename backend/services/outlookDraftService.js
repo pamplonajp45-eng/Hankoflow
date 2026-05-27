@@ -2,7 +2,20 @@ function getPublicApiUrl() {
   return (process.env.PUBLIC_API_URL || 'http://localhost:5000').replace(/\/$/, '');
 }
 
+function getPublicAppUrl() {
+  return (
+    process.env.PUBLIC_FRONTEND_URL ||
+    process.env.FRONTEND_URL ||
+    process.env.PUBLIC_API_URL ||
+    'http://localhost:5173'
+  ).replace(/\/$/, '');
+}
+
 function buildApproveUrl(actionToken) {
+  return `${getPublicAppUrl()}/a/${actionToken}`;
+}
+
+function buildBackendApproveUrl(actionToken) {
   return `${getPublicApiUrl()}/api/approvals/a/${actionToken}`;
 }
 
@@ -87,5 +100,6 @@ function buildApprovalEmailDraft({
 
 module.exports = {
   buildApproveUrl,
+  buildBackendApproveUrl,
   buildApprovalEmailDraft
 };

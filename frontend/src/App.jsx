@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Login from './components/Login';
 import ApproverDashboard from './components/ApproverDashboard';
+import ApprovalRedirect from './components/ApprovalRedirect';
 
 function restoreSession() {
   const savedUser = localStorage.getItem('approvals_session');
@@ -23,6 +24,7 @@ function restoreSession() {
 
 export default function App() {
   const [user, setUser] = useState(restoreSession);
+  const isApprovalRedirect = window.location.pathname.startsWith('/a/');
 
   const handleLogin = (userInfo) => {
     setUser(userInfo);
@@ -51,7 +53,9 @@ export default function App() {
         </div>
       </header>
 
-      {!user ? (
+      {isApprovalRedirect ? (
+        <ApprovalRedirect />
+      ) : !user ? (
         <Login onLogin={handleLogin} />
       ) : (
         <ApproverDashboard user={user} onLogout={handleLogout} />
