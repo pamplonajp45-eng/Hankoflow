@@ -40,6 +40,9 @@ export default function Login({ onLogin }) {
               onChange={(e) => setEmail(e.target.value)}
               required
             />
+            <small style={{ color: 'var(--text-muted)', display: 'block', marginTop: '0.5rem' }}>
+              Admin tester: <code>{ADMIN_USER.email}</code>
+            </small>
           </div>
 
           <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }}>

@@ -20,8 +20,8 @@ export const APPROVER_LEVELS = [
 ];
 
 export const ADMIN_USER = {
-  label: 'System Admin (Audit Trail View)',
-  email: import.meta.env.VITE_ADMIN_EMAIL || 'admin@company.com',
+  label: 'Admin Tester (Audit Trail View)',
+  email: import.meta.env.VITE_ADMIN_EMAIL || 'admin.tester@hankoflow.local',
   role: 'admin'
 };
 
