@@ -59,6 +59,7 @@ export default function ApproverDashboard({ user, onLogout }) {
   const [draftReviewed, setDraftReviewed] = useState(false);
   const [outlookOpened, setOutlookOpened] = useState(false);
   const [markingSent, setMarkingSent] = useState(false);
+  const [deletingRequestId, setDeletingRequestId] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [toast, setToast] = useState(null);
 
@@ -256,6 +257,41 @@ export default function ApproverDashboard({ user, onLogout }) {
       alert(`Mark Sent Error: ${err.message}`);
     } finally {
       setMarkingSent(false);
+    }
+  };
+
+  const handleDeleteRequest = async (request) => {
+    const phrase = window.prompt(
+      `Delete request #${request.id} at your own risk?\n\nThis permanently removes the request and its approval history.\n\nType "delete this" to continue.`
+    );
+
+    if (phrase !== 'delete this') {
+      if (phrase !== null) {
+        showToast('Delete cancelled. Exact phrase did not match.', 'error');
+      }
+      return;
+    }
+
+    setDeletingRequestId(request.id);
+    try {
+      await apiFetch(`/api/requests/${request.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Email': user.email
+        },
+        body: JSON.stringify({ confirmation: 'delete this' })
+      });
+
+      showToast(`Request #${request.id} deleted.`);
+      if (selectedRequest?.id === request.id) {
+        setSelectedRequest(null);
+      }
+      fetchMyRequests();
+    } catch (err) {
+      alert(`Delete Error: ${err.message}`);
+    } finally {
+      setDeletingRequestId(null);
     }
   };
 
@@ -542,13 +578,23 @@ export default function ApproverDashboard({ user, onLogout }) {
                     <td data-label="Status"><span className={`badge ${getStatusBadgeClass(request.status)}`}>{request.status}</span></td>
                     <td data-label="Date Submitted">{new Date(request.created_at).toLocaleString()}</td>
                     <td data-label="Actions">
-                      <button
-                        className="btn btn-secondary"
-                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderRadius: '6px' }}
-                        onClick={() => setSelectedRequest(request)}
-                      >
-                        Inspect Workflow
-                      </button>
+                      <div className="table-actions">
+                        <button
+                          className="btn btn-secondary"
+                          style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderRadius: '6px' }}
+                          onClick={() => setSelectedRequest(request)}
+                        >
+                          Inspect Workflow
+                        </button>
+                        <button
+                          className="btn btn-danger"
+                          style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderRadius: '6px' }}
+                          onClick={() => handleDeleteRequest(request)}
+                          disabled={deletingRequestId === request.id}
+                        >
+                          {deletingRequestId === request.id ? 'Deleting...' : 'Delete'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -633,6 +679,9 @@ export default function ApproverDashboard({ user, onLogout }) {
             </div>
 
             <div className="actions-row" style={{ marginTop: '2.5rem' }}>
+              <button className="btn btn-danger" onClick={() => handleDeleteRequest(selectedRequest)}>
+                Delete Request
+              </button>
               <button className="btn btn-primary" onClick={() => setSelectedRequest(null)}>
                 Close
               </button>

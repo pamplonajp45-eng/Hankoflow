@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import Login from './components/Login';
 import ApproverDashboard from './components/ApproverDashboard';
-import AdminDashboard from './components/AdminDashboard';
 
 function restoreSession() {
   const savedUser = localStorage.getItem('approvals_session');
@@ -9,9 +8,8 @@ function restoreSession() {
 
   try {
     const parsedUser = JSON.parse(savedUser);
-    const isInvalidAdminSession = parsedUser?.role === 'admin' && !parsedUser?.adminToken;
 
-    if (!parsedUser?.email || isInvalidAdminSession) {
+    if (!parsedUser?.email || parsedUser?.role !== 'employee') {
       localStorage.removeItem('approvals_session');
       return null;
     }
@@ -47,7 +45,7 @@ export default function App() {
           {user && (
             <div className="user-badge">
               <span className="badge-dot"></span>
-              <span>{user.role === 'admin' ? 'Administrator' : 'Employee'}</span>
+              <span>Employee</span>
             </div>
           )}
         </div>
@@ -55,8 +53,6 @@ export default function App() {
 
       {!user ? (
         <Login onLogin={handleLogin} />
-      ) : user.role === 'admin' ? (
-        <AdminDashboard user={user} onLogout={handleLogout} />
       ) : (
         <ApproverDashboard user={user} onLogout={handleLogout} />
       )}

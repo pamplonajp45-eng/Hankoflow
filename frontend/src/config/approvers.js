@@ -19,12 +19,6 @@ export const APPROVER_LEVELS = [
   }
 ];
 
-export const ADMIN_USER = {
-  label: 'Admin Tester (Audit Trail View)',
-  email: import.meta.env.VITE_ADMIN_EMAIL || 'admin.tester@hankoflow.local',
-  role: 'admin'
-};
-
 export function getLevelRole(level) {
   const approver = APPROVER_LEVELS.find((item) => item.level === Number(level));
   return approver ? approver.role : `Level ${level}`;

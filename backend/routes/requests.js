@@ -3,7 +3,6 @@ const crypto = require('crypto');
 const router = express.Router();
 const db = require('../db');
 const { buildApprovalEmailDraft, buildApproveUrl } = require('../services/outlookDraftService');
-const { isAdminRequest, requireAdmin } = require('../middleware/adminAuth');
 
 function isEmail(value) {
   return typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -240,22 +239,16 @@ router.post('/', async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
-    const admin = isAdminRequest(req);
     const submittedBy = getSignedInEmployeeEmail(req);
 
-    if (!admin && !isEmail(submittedBy)) {
-      return res.status(401).json({ error: 'Signed-in employee email or admin token required.' });
+    if (!isEmail(submittedBy)) {
+      return res.status(401).json({ error: 'Signed-in employee email required.' });
     }
 
-    const requestQuery = admin
-      ? {
-          text: 'SELECT * FROM requests ORDER BY created_at DESC',
-          values: []
-        }
-      : {
-          text: "SELECT * FROM requests WHERE lower(submitted_by) = $1 AND status <> 'draft' ORDER BY created_at DESC",
-          values: [submittedBy]
-        };
+    const requestQuery = {
+      text: "SELECT * FROM requests WHERE lower(submitted_by) = $1 AND status <> 'draft' ORDER BY created_at DESC",
+      values: [submittedBy]
+    };
 
     const { rows: requests } = await db.query(requestQuery.text, requestQuery.values);
 
@@ -362,7 +355,7 @@ router.get('/:id', async (req, res) => {
     }
 
     const signedInEmail = getSignedInEmployeeEmail(req);
-    if (!isAdminRequest(req) && normalizeEmail(requests[0].submitted_by) !== signedInEmail) {
+    if (normalizeEmail(requests[0].submitted_by) !== signedInEmail) {
       return res.status(401).json({ error: 'You do not have access to this request.' });
     }
 
@@ -396,11 +389,23 @@ router.get('/:id', async (req, res) => {
  * DELETE /api/requests/:id
  * Deletes a request and all related approval logs/reminders.
  */
-router.delete('/:id', requireAdmin, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   const { id } = req.params;
+  const signedInEmail = getSignedInEmployeeEmail(req);
+
+  if (!isEmail(signedInEmail)) {
+    return res.status(401).json({ error: 'Signed-in employee email required.' });
+  }
+
+  if (req.body?.confirmation !== 'delete this') {
+    return res.status(400).json({ error: 'Type "delete this" to confirm deletion.' });
+  }
 
   try {
-    const { rowCount } = await db.query('DELETE FROM requests WHERE id = $1', [id]);
+    const { rowCount } = await db.query(
+      'DELETE FROM requests WHERE id = $1 AND lower(submitted_by) = $2',
+      [id, signedInEmail]
+    );
 
     if (rowCount === 0) {
       return res.status(404).json({ error: 'Request not found.' });

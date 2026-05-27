@@ -434,6 +434,12 @@ h1, h2, h3, h4, h5, h6 {
   vertical-align: middle;
 }
 
+.table-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 /* Grid Layouts */
 .dashboard-grid {
   display: grid;
@@ -986,6 +992,11 @@ h1, h2, h3, h4, h5, h6 {
   .audit-table td code {
     white-space: normal;
     overflow-wrap: anywhere;
+  }
+
+  .table-actions {
+    width: 100%;
+    flex-direction: column;
   }
 
   .audit-table td[data-label="Excel File Path"] {
