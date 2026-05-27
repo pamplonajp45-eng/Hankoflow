@@ -17,12 +17,10 @@ function actionPage(title, message, nextDraft = null) {
   const nextDraftHtml = nextDraft
     ? `
           <hr />
-          <h2>Next step</h2>
-          <p>Send the next approval request from Outlook.</p>
-          <p><a class="button" href="${escapeHtml(nextDraft.outlookWebUrl || nextDraft.mailto)}">Open Next Outlook Email</a></p>
-          <p><strong>To:</strong> ${escapeHtml(nextDraft.to)}</p>
-          <p><strong>Subject:</strong> ${escapeHtml(nextDraft.subject)}</p>
-          <textarea readonly>${escapeHtml(nextDraft.body)}</textarea>
+          <h2>Next approver</h2>
+          <p>Your Hanko confirmation is recorded. Click Done to open the next Outlook email.</p>
+          <p><a class="button" href="${escapeHtml(nextDraft.outlookWebUrl || nextDraft.mailto)}">Done - Send to Next Approver</a></p>
+          <p class="hint">Outlook will open with the next approver, subject, and message already filled in. Review it, then click Send in Outlook.</p>
       `
     : '';
 
@@ -39,9 +37,9 @@ function actionPage(title, message, nextDraft = null) {
           h1 { margin-top: 0; font-size: 24px; }
           h2 { font-size: 18px; margin-top: 24px; }
           p { line-height: 1.55; }
+          .hint { color: #64748b; font-size: 14px; }
           hr { border: 0; border-top: 1px solid #dde2ec; margin: 24px 0; }
           .button { display: inline-block; background: #2563eb; color: #fff; text-decoration: none; padding: 12px 16px; border-radius: 6px; font-weight: 700; }
-          textarea { box-sizing: border-box; width: 100%; min-height: 220px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; font-family: Consolas, monospace; font-size: 13px; white-space: pre-wrap; }
         </style>
       </head>
       <body>
