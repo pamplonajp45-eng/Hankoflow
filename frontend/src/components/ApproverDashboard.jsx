@@ -530,18 +530,18 @@ export default function ApproverDashboard({ user, onLogout }) {
               <tbody>
                 {requests.map((request) => (
                   <tr key={request.id}>
-                    <td>
+                    <td data-label="ID">
                       {request.status === 'pending' && <span className="table-dot" title="Pending approval"></span>}
                       #{request.id}
                     </td>
-                    <td style={{ maxWidth: '360px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={request.file_path}>
+                    <td data-label="Excel File Path" style={{ maxWidth: '360px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={request.file_path}>
                       <code>{request.file_path}</code>
                     </td>
-                    <td>{request.approval_mode === 'parallel' ? 'Parallel' : 'Sequential'}</td>
-                    <td>{getStatusLabel(request)}</td>
-                    <td><span className={`badge ${getStatusBadgeClass(request.status)}`}>{request.status}</span></td>
-                    <td>{new Date(request.created_at).toLocaleString()}</td>
-                    <td>
+                    <td data-label="Mode">{request.approval_mode === 'parallel' ? 'Parallel' : 'Sequential'}</td>
+                    <td data-label="Current Level">{getStatusLabel(request)}</td>
+                    <td data-label="Status"><span className={`badge ${getStatusBadgeClass(request.status)}`}>{request.status}</span></td>
+                    <td data-label="Date Submitted">{new Date(request.created_at).toLocaleString()}</td>
+                    <td data-label="Actions">
                       <button
                         className="btn btn-secondary"
                         style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderRadius: '6px' }}

@@ -135,24 +135,24 @@ export default function AdminDashboard({ user, onLogout }) {
               <tbody>
                 {requests.map((req) => (
                   <tr key={req.id}>
-                    <td>
+                    <td data-label="ID">
                       {(req.status === 'pending' || req.status === 'draft') && (
                         <span className="table-dot" title={req.status === 'draft' ? 'Draft not sent' : 'Pending approval'}></span>
                       )}
                       #{req.id}
                     </td>
-                    <td>{req.submitted_by}</td>
-                    <td style={{ maxWidth: '280px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={req.file_path}>
+                    <td data-label="Submitted By">{req.submitted_by}</td>
+                    <td data-label="Excel File Path" style={{ maxWidth: '280px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={req.file_path}>
                       <code>{req.file_path}</code>
                     </td>
-                    <td>{new Date(req.created_at).toLocaleString()}</td>
-                    <td>{getLevelLabel(req)}</td>
-                    <td>
+                    <td data-label="Date Submitted">{new Date(req.created_at).toLocaleString()}</td>
+                    <td data-label="Current Level">{getLevelLabel(req)}</td>
+                    <td data-label="Status">
                       <span className={`badge ${getStatusBadgeClass(req.status)}`}>
                         {req.status}
                       </span>
                     </td>
-                    <td style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <td data-label="Actions" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                       <button 
                         className="btn btn-secondary" 
                         style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderRadius: '6px' }}

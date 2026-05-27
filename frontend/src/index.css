@@ -818,6 +818,267 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+@media (max-width: 720px) {
+  body {
+    background-attachment: scroll;
+  }
+
+  .header {
+    padding: 0.85rem 1rem;
+    gap: 0.75rem;
+  }
+
+  .logo {
+    font-size: 1.15rem;
+  }
+
+  .logo-icon {
+    font-size: 1.35rem;
+  }
+
+  .user-badge {
+    padding: 0.4rem 0.65rem;
+    font-size: 0.75rem;
+  }
+
+  .main-content {
+    padding: 1rem;
+  }
+
+  .dashboard-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .dashboard-header .btn,
+  .dashboard-header > button {
+    width: 100%;
+  }
+
+  .dashboard-title h1 {
+    font-size: 1.75rem;
+  }
+
+  .notification-strip {
+    margin-top: -0.75rem;
+  }
+
+  .notification-pill {
+    width: 100%;
+    align-items: flex-start;
+  }
+
+  .login-wrapper {
+    align-items: flex-start;
+    min-height: calc(100vh - 64px);
+    padding: 1rem;
+  }
+
+  .login-card,
+  .employee-request-panel,
+  .admin-card {
+    padding: 1.25rem;
+    border-radius: 12px;
+  }
+
+  .login-header h2 {
+    font-size: 1.6rem;
+  }
+
+  .approval-mode-toggle,
+  .login-mode-switch {
+    grid-template-columns: 1fr;
+  }
+
+  .approver-row {
+    grid-template-columns: 1.75rem minmax(0, 1fr) 2.25rem;
+    gap: 0.45rem;
+  }
+
+  .approver-index {
+    width: 1.75rem;
+    height: 1.75rem;
+    font-size: 0.8rem;
+  }
+
+  .icon-btn {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .btn {
+    width: 100%;
+    padding: 0.8rem 1rem;
+  }
+
+  .actions-row {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .sent-confirm-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .email-draft-box,
+  .hanko-instructions {
+    padding: 1rem;
+  }
+
+  .draft-preview {
+    min-height: 260px;
+  }
+
+  .table-wrapper {
+    overflow: visible;
+    border: 0;
+  }
+
+  .audit-table,
+  .audit-table thead,
+  .audit-table tbody,
+  .audit-table th,
+  .audit-table td,
+  .audit-table tr {
+    display: block;
+  }
+
+  .audit-table thead {
+    display: none;
+  }
+
+  .audit-table tr {
+    margin-bottom: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    background: rgba(10, 15, 30, 0.35);
+  }
+
+  .audit-table td {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .audit-table td:last-child {
+    border-bottom: 0;
+  }
+
+  .audit-table td::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    flex: 0 0 42%;
+    font-weight: 700;
+  }
+
+  .audit-table td:empty::before {
+    content: none;
+  }
+
+  .audit-table td code {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .audit-table td[data-label="Excel File Path"] {
+    max-width: none !important;
+    overflow: visible !important;
+    white-space: normal !important;
+  }
+
+  .modal-content {
+    max-height: calc(100vh - 2rem);
+    padding: 1.25rem;
+  }
+
+  .audit-details-modal {
+    align-items: flex-start;
+    padding: 0.75rem;
+  }
+
+  .modal-header {
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .workflow-summary {
+    padding: 0.85rem;
+  }
+
+  .logs-timeline {
+    gap: 1rem;
+  }
+
+  .log-title {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .stepper-container {
+    justify-content: flex-start;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding: 0 0.5rem 0.75rem;
+    scrollbar-width: thin;
+  }
+
+  .stepper-step {
+    min-width: 82px;
+  }
+
+  .stepper-line {
+    left: 2rem;
+    right: 2rem;
+  }
+}
+
+@media (max-width: 520px) {
+  .main-content {
+    padding: 0.75rem;
+  }
+
+  .login-card,
+  .employee-request-panel,
+  .admin-card {
+    padding: 1rem;
+  }
+
+  .form-select,
+  .form-input {
+    font-size: 0.95rem;
+    padding: 0.7rem 0.8rem;
+  }
+
+  .dashboard-title h1 {
+    font-size: 1.5rem;
+  }
+
+  .employee-request-panel h2 {
+    font-size: 1.1rem;
+  }
+
+  .empty-state {
+    padding: 2rem 1rem;
+  }
+
+  .stepper-step {
+    min-width: 74px;
+  }
+
+  .step-label {
+    font-size: 0.68rem;
+  }
+}
+
 /* Admin Dashboard Table */
 .admin-card {
   padding: 1.75rem;
