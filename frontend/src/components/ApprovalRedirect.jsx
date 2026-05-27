@@ -13,12 +13,6 @@ export default function ApprovalRedirect() {
     }
   }, [approvalUrl]);
 
-  const handleContinue = () => {
-    if (approvalUrl) {
-      window.location.href = approvalUrl;
-    }
-  };
-
   return (
     <div className="login-wrapper">
       <div className="login-card glass-panel">
@@ -29,9 +23,9 @@ export default function ApprovalRedirect() {
         </div>
 
         {approvalUrl ? (
-          <button type="button" className="btn btn-primary" style={{ width: '100%' }} onClick={handleContinue}>
-            Continue if this does not open automatically
-          </button>
+          <div className="redirect-loading" aria-label="Opening approval confirmation">
+            <span className="loading-spinner"></span>
+          </div>
         ) : (
           <div className="empty-state compact-empty">
             <h3>Invalid approval URL</h3>
