@@ -45,9 +45,9 @@ export default function ApproverDashboard({ user, onLogout }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filePath, setFilePath] = useState('\\\\company-share\\finance\\April_Invoices_v2.xlsx');
-  const [supervisorEmail, setSupervisorEmail] = useState('pamplonajeypii.45@outlook.com');
-  const [assistantManagerEmail, setAssistantManagerEmail] = useState('assistantmanager@company.com');
-  const [managerEmail, setManagerEmail] = useState('manager@company.com');
+  const [supervisorEmail, setSupervisorEmail] = useState('');
+  const [assistantManagerEmail, setAssistantManagerEmail] = useState('');
+  const [managerEmail, setManagerEmail] = useState('');
   const [creating, setCreating] = useState(false);
   const [emailDraft, setEmailDraft] = useState(null);
   const [draftRequestId, setDraftRequestId] = useState(null);
