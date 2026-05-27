@@ -3,36 +3,8 @@ import { apiFetch } from '../utils/apiClient';
 import StatusTracker from './StatusTracker';
 import { getLevelRole } from '../config/approvers';
 
-function escapeHtml(value) {
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function buildHtmlDraftBody(body, approveUrl) {
-  const escapedBody = escapeHtml(body)
-    .replace(/\r?\n/g, '<br>')
-    .replace(
-      escapeHtml(approveUrl),
-      `<a href="${escapeHtml(approveUrl)}">Approve Request</a>`
-    );
-
-  return `
-    <div>${escapedBody}</div>
-    <p>
-      <a href="${escapeHtml(approveUrl)}" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:6px;font-weight:bold;">
-        Approve Request
-      </a>
-    </p>
-  `;
-}
-
-function buildOutlookWebUrl({ to, subject, body, approveUrl }) {
-  const outlookBody = approveUrl ? buildHtmlDraftBody(body, approveUrl) : body;
-  return `https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(outlookBody)}`;
+function buildOutlookWebUrl({ to, subject, body }) {
+  return `https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
 function getStatusLabel(request) {
@@ -61,7 +33,6 @@ export default function ApproverDashboard({ user, onLogout }) {
   const [draftTo, setDraftTo] = useState('');
   const [draftSubject, setDraftSubject] = useState('');
   const [draftBody, setDraftBody] = useState('');
-  const [draftApproveUrl, setDraftApproveUrl] = useState('');
   const [draftReviewed, setDraftReviewed] = useState(false);
   const [outlookOpened, setOutlookOpened] = useState(false);
   const [markingSent, setMarkingSent] = useState(false);
@@ -103,10 +74,9 @@ export default function ApproverDashboard({ user, onLogout }) {
     return buildOutlookWebUrl({
       to: draftTo,
       subject: draftSubject,
-      body: draftBody,
-      approveUrl: draftApproveUrl
+      body: draftBody
     });
-  }, [draftTo, draftSubject, draftBody, draftApproveUrl]);
+  }, [draftTo, draftSubject, draftBody]);
 
   const handleCreateRequest = async (e) => {
     e.preventDefault();
@@ -137,7 +107,6 @@ export default function ApproverDashboard({ user, onLogout }) {
       setDraftTo(result.email_draft.to);
       setDraftSubject(result.email_draft.subject);
       setDraftBody(result.email_draft.body);
-      setDraftApproveUrl(result.email_draft.approveUrl);
       showToast(`Draft #${result.request.id} created. It will appear in My Requests after you confirm the Outlook email was sent.`);
     } catch (err) {
       alert(`Create Request Error: ${err.message}`);
@@ -189,7 +158,6 @@ export default function ApproverDashboard({ user, onLogout }) {
       setDraftTo('');
       setDraftSubject('');
       setDraftBody('');
-      setDraftApproveUrl('');
       setDraftReviewed(false);
       setOutlookOpened(false);
       fetchMyRequests();

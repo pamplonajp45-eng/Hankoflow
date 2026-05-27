@@ -69,7 +69,7 @@ async function approveLog(client, log, request) {
       : request.manager_email || process.env.APPROVER_LEVEL_3_EMAIL || 'manager@company.com';
     const nextDeadline = new Date();
     nextDeadline.setDate(nextDeadline.getDate() + 2);
-    const nextActionToken = crypto.randomBytes(32).toString('hex');
+    const nextActionToken = crypto.randomBytes(16).toString('base64url');
 
     await client.query(
       'UPDATE requests SET current_level = $1 WHERE id = $2',
@@ -227,6 +227,13 @@ router.get('/pending', async (req, res) => {
 });
 
 router.get('/email/:token/approve', async (req, res) => {
+  const result = await processApprovalByToken(req.params.token, 'approve');
+  const title = result.statusCode === 200 ? 'Approval Recorded' : 'Approval Link Error';
+  const message = result.body.message || result.body.error;
+  return res.status(result.statusCode).send(actionPage(title, message, result.body.emailDraft));
+});
+
+router.get('/a/:token', async (req, res) => {
   const result = await processApprovalByToken(req.params.token, 'approve');
   const title = result.statusCode === 200 ? 'Approval Recorded' : 'Approval Link Error';
   const message = result.body.message || result.body.error;

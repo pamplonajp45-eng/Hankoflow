@@ -80,7 +80,7 @@ router.post('/', async (req, res) => {
 
     // 3. Create Level 1 approval log
     const approverEmail = supervisorEmail;
-    const actionToken = crypto.randomBytes(32).toString('hex');
+    const actionToken = crypto.randomBytes(16).toString('base64url');
     const logResult = await client.query(
       `INSERT INTO approval_logs (request_id, level, approver_email, action, action_token, deadline)
        VALUES ($1, 1, $2, 'pending', $3, $4) RETURNING id`,
