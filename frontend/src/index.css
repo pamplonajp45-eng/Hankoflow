@@ -608,6 +608,24 @@ h1, h2, h3, h4, h5, h6 {
   accent-color: var(--primary);
 }
 
+.sent-confirm-panel {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.sent-confirm-panel p {
+  margin: 0.25rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
 .employee-grid {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
@@ -666,6 +684,7 @@ h1, h2, h3, h4, h5, h6 {
 
   .email-draft-header,
   .actions-row,
+  .sent-confirm-panel,
   .workflow-summary {
     flex-wrap: wrap;
     grid-template-columns: 1fr;

@@ -57,11 +57,14 @@ export default function ApproverDashboard({ user, onLogout }) {
   const [managerEmail, setManagerEmail] = useState('manager@company.com');
   const [creating, setCreating] = useState(false);
   const [emailDraft, setEmailDraft] = useState(null);
+  const [draftRequestId, setDraftRequestId] = useState(null);
   const [draftTo, setDraftTo] = useState('');
   const [draftSubject, setDraftSubject] = useState('');
   const [draftBody, setDraftBody] = useState('');
   const [draftApproveUrl, setDraftApproveUrl] = useState('');
   const [draftReviewed, setDraftReviewed] = useState(false);
+  const [outlookOpened, setOutlookOpened] = useState(false);
+  const [markingSent, setMarkingSent] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [toast, setToast] = useState(null);
 
@@ -109,7 +112,9 @@ export default function ApproverDashboard({ user, onLogout }) {
     e.preventDefault();
     setCreating(true);
     setEmailDraft(null);
+    setDraftRequestId(null);
     setDraftReviewed(false);
+    setOutlookOpened(false);
 
     try {
       const result = await apiFetch('/api/requests', {
@@ -128,12 +133,12 @@ export default function ApproverDashboard({ user, onLogout }) {
       });
 
       setEmailDraft(result.email_draft);
+      setDraftRequestId(result.request.id);
       setDraftTo(result.email_draft.to);
       setDraftSubject(result.email_draft.subject);
       setDraftBody(result.email_draft.body);
       setDraftApproveUrl(result.email_draft.approveUrl);
-      showToast(`Request #${result.request.id} created. No email was sent. Review the draft, then open Outlook.`);
-      fetchMyRequests();
+      showToast(`Draft #${result.request.id} created. It will appear in My Requests after you confirm the Outlook email was sent.`);
     } catch (err) {
       alert(`Create Request Error: ${err.message}`);
     } finally {
@@ -160,6 +165,39 @@ export default function ApproverDashboard({ user, onLogout }) {
     }
 
     window.open(editableOutlookUrl, '_blank', 'noopener,noreferrer');
+    setOutlookOpened(true);
+  };
+
+  const handleMarkSent = async () => {
+    if (!draftRequestId) return;
+
+    const confirmed = window.confirm('Confirm that you sent this Outlook email to the first approver?');
+    if (!confirmed) return;
+
+    setMarkingSent(true);
+    try {
+      await apiFetch(`/api/requests/${draftRequestId}/sent`, {
+        method: 'POST',
+        headers: {
+          'X-User-Email': user.email
+        }
+      });
+
+      showToast(`Request #${draftRequestId} is now pending approval.`);
+      setEmailDraft(null);
+      setDraftRequestId(null);
+      setDraftTo('');
+      setDraftSubject('');
+      setDraftBody('');
+      setDraftApproveUrl('');
+      setDraftReviewed(false);
+      setOutlookOpened(false);
+      fetchMyRequests();
+    } catch (err) {
+      alert(`Mark Sent Error: ${err.message}`);
+    } finally {
+      setMarkingSent(false);
+    }
   };
 
   return (
@@ -253,7 +291,7 @@ export default function ApproverDashboard({ user, onLogout }) {
           ) : (
             <div className="email-draft-box">
               <div className="draft-safety-note">
-                Request created. No email has been sent yet. Edit and review the draft below before opening Outlook.
+                Draft created. It is hidden from My Requests until you open Outlook and confirm the email was sent.
               </div>
 
               <div className="form-group">
@@ -316,6 +354,23 @@ export default function ApproverDashboard({ user, onLogout }) {
                   Open in Outlook
                 </button>
               </div>
+
+              {outlookOpened && (
+                <div className="sent-confirm-panel">
+                  <div>
+                    <strong>Sent from Outlook?</strong>
+                    <p>After you click Send in Outlook, confirm here to move this request into My Requests.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={handleMarkSent}
+                    disabled={markingSent}
+                  >
+                    {markingSent ? 'Saving...' : 'I Sent This Email'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

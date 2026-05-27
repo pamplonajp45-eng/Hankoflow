@@ -69,7 +69,7 @@ router.post('/', async (req, res) => {
          status,
          current_level
        )
-       VALUES ($1, $2, $3, $4, $5, 'pending', 1) RETURNING id`,
+       VALUES ($1, $2, $3, $4, $5, 'draft', 1) RETURNING id`,
       [file_path, submittedBy, supervisorEmail, assistantManagerEmail, managerEmail]
     );
     const requestId = requestResult.rows[0].id;
@@ -113,7 +113,7 @@ router.post('/', async (req, res) => {
         supervisor_email: supervisorEmail,
         assistant_manager_email: assistantManagerEmail,
         manager_email: managerEmail,
-        status: 'pending',
+        status: 'draft',
         current_level: 1,
         created_at: new Date()
       },
@@ -156,7 +156,7 @@ router.get('/', async (req, res) => {
           values: []
         }
       : {
-          text: 'SELECT * FROM requests WHERE lower(submitted_by) = $1 ORDER BY created_at DESC',
+          text: "SELECT * FROM requests WHERE lower(submitted_by) = $1 AND status <> 'draft' ORDER BY created_at DESC",
           values: [submittedBy]
         };
 
@@ -213,6 +213,41 @@ router.get('/', async (req, res) => {
   } catch (error) {
     console.error('Error fetching all requests:', error);
     return res.status(500).json({ error: 'Failed to fetch requests.' });
+  }
+});
+
+/**
+ * POST /api/requests/:id/sent
+ * Marks a draft request as sent after the employee opens/sends the Outlook email.
+ */
+router.post('/:id/sent', async (req, res) => {
+  const { id } = req.params;
+  const signedInEmail = getSignedInEmployeeEmail(req);
+
+  if (!isEmail(signedInEmail)) {
+    return res.status(401).json({ error: 'Signed-in employee email required.' });
+  }
+
+  try {
+    const { rows } = await db.query(
+      `UPDATE requests
+       SET status = 'pending'
+       WHERE id = $1 AND lower(submitted_by) = $2 AND status = 'draft'
+       RETURNING *`,
+      [id, signedInEmail]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Draft request not found or already sent.' });
+    }
+
+    return res.json({
+      message: `Request #${id} marked as sent.`,
+      request: rows[0]
+    });
+  } catch (error) {
+    console.error(`Error marking request ${id} as sent:`, error);
+    return res.status(500).json({ error: 'Failed to mark request as sent.' });
   }
 });
 
