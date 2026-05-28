@@ -440,6 +440,11 @@ h1, h2, h3, h4, h5, h6 {
   flex-wrap: wrap;
 }
 
+.table-dot.urgent-dot {
+  background: var(--danger);
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2), 0 0 14px rgba(239, 68, 68, 0.55);
+}
+
 /* Grid Layouts */
 .dashboard-grid {
   display: grid;
@@ -500,6 +505,12 @@ h1, h2, h3, h4, h5, h6 {
   background: rgba(245, 158, 11, 0.15);
   color: var(--warning);
   border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badge-overdue {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+  border: 1px solid rgba(239, 68, 68, 0.35);
 }
 
 .badge-approved {
@@ -1214,6 +1225,11 @@ h1, h2, h3, h4, h5, h6 {
 .log-item.pending::before {
   background: var(--warning);
   box-shadow: 0 0 6px var(--warning);
+}
+
+.log-item.overdue::before {
+  background: var(--danger);
+  box-shadow: 0 0 6px var(--danger);
 }
 
 .log-title {

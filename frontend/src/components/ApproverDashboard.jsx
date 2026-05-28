@@ -32,14 +32,27 @@ function buildRichDraftBody(body, approvalLinks = []) {
   return `<div>${htmlLines.join('<br>')}</div>`;
 }
 
+function isLogOverdue(log) {
+  return log?.action === 'pending' && log.deadline && new Date(log.deadline) < new Date();
+}
+
+function isRequestOverdue(request) {
+  return request?.status === 'pending' && request.logs?.some(isLogOverdue);
+}
+
 function getStatusLabel(request) {
   if (request.status === 'approved') return 'Completed';
   if (request.status === 'rejected') return 'Stopped';
+  if (isRequestOverdue(request)) {
+    if (request.approval_mode === 'parallel') return 'Parallel approval overdue';
+    return `Level ${request.current_level} overdue`;
+  }
   if (request.approval_mode === 'parallel') return 'Parallel approval pending';
   return `Level ${request.current_level} pending`;
 }
 
-function getStatusBadgeClass(status) {
+function getStatusBadgeClass(status, overdue = false) {
+  if (overdue) return 'badge-overdue';
   if (status === 'approved') return 'badge-approved';
   if (status === 'rejected') return 'badge-rejected';
   return 'badge-pending';
@@ -100,6 +113,7 @@ export default function ApproverDashboard({ user, onLogout }) {
 
   const activeEmailDraft = emailDrafts[activeDraftIndex] || null;
   const pendingRequestsCount = requests.filter((request) => request.status === 'pending').length;
+  const overdueRequestsCount = requests.filter(isRequestOverdue).length;
   const approvedRequestsCount = requests.filter((request) => request.status === 'approved').length;
   const hasUnsentDraft = Boolean(activeEmailDraft);
 
@@ -344,6 +358,12 @@ export default function ApproverDashboard({ user, onLogout }) {
             {pendingRequestsCount} active approval request{pendingRequestsCount === 1 ? '' : 's'}
           </div>
         )}
+        {overdueRequestsCount > 0 && (
+          <div className="notification-pill urgent">
+            <span className="notify-dot"></span>
+            {overdueRequestsCount} overdue request{overdueRequestsCount === 1 ? '' : 's'}
+          </div>
+        )}
         {approvedRequestsCount > 0 && (
           <div className="notification-pill success">
             {approvedRequestsCount} completed request{approvedRequestsCount === 1 ? '' : 's'}
@@ -578,7 +598,12 @@ export default function ApproverDashboard({ user, onLogout }) {
                 {requests.map((request) => (
                   <tr key={request.id}>
                     <td data-label="ID">
-                      {request.status === 'pending' && <span className="table-dot" title="Pending approval"></span>}
+                      {request.status === 'pending' && (
+                        <span
+                          className={`table-dot ${isRequestOverdue(request) ? 'urgent-dot' : ''}`}
+                          title={isRequestOverdue(request) ? 'Approval overdue' : 'Pending approval'}
+                        ></span>
+                      )}
                       #{request.id}
                     </td>
                     <td data-label="Excel File Path" style={{ maxWidth: '360px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={request.file_path}>
@@ -586,7 +611,11 @@ export default function ApproverDashboard({ user, onLogout }) {
                     </td>
                     <td data-label="Mode">{request.approval_mode === 'parallel' ? 'Parallel' : 'Sequential'}</td>
                     <td data-label="Current Level">{getStatusLabel(request)}</td>
-                    <td data-label="Status"><span className={`badge ${getStatusBadgeClass(request.status)}`}>{request.status}</span></td>
+                    <td data-label="Status">
+                      <span className={`badge ${getStatusBadgeClass(request.status, isRequestOverdue(request))}`}>
+                        {isRequestOverdue(request) ? 'overdue' : request.status}
+                      </span>
+                    </td>
                     <td data-label="Date Submitted">{new Date(request.created_at).toLocaleString()}</td>
                     <td data-label="Actions">
                       <div className="table-actions">
@@ -664,11 +693,11 @@ export default function ApproverDashboard({ user, onLogout }) {
               <div className="logs-timeline">
                 {selectedRequest.logs && selectedRequest.logs.length > 0 ? (
                   selectedRequest.logs.map((log) => (
-                    <div key={log.id} className={`log-item ${log.action}`}>
+                    <div key={log.id} className={`log-item ${log.action} ${isLogOverdue(log) ? 'overdue' : ''}`}>
                       <div className="log-title">
                         <span>Level {log.level}: {getLevelRole(log.level)}</span>
-                        <span className={`badge ${getStatusBadgeClass(log.action)}`} style={{ fontSize: '0.65rem' }}>
-                          {log.action}
+                        <span className={`badge ${getStatusBadgeClass(log.action, isLogOverdue(log))}`} style={{ fontSize: '0.65rem' }}>
+                          {isLogOverdue(log) ? 'overdue' : log.action}
                         </span>
                       </div>
                       <div className="log-desc">
@@ -678,7 +707,9 @@ export default function ApproverDashboard({ user, onLogout }) {
                         {log.confirmed_at ? (
                           <span>Confirmed at: {new Date(log.confirmed_at).toLocaleString()}</span>
                         ) : (
-                          <span>Deadline: {new Date(log.deadline).toLocaleString()}</span>
+                          <span>
+                            {isLogOverdue(log) ? 'Overdue since' : 'Deadline'}: {new Date(log.deadline).toLocaleString()}
+                          </span>
                         )}
                       </div>
                     </div>

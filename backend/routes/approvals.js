@@ -140,6 +140,8 @@ function getApproverChain(request) {
 
 async function approveLog(client, log, request) {
   const now = new Date();
+  const wasOverdue = log.deadline && new Date(log.deadline) < now;
+  const overdueNote = wasOverdue ? ' This approval was completed after the deadline.' : '';
 
   await client.query(
     "UPDATE approval_logs SET action = 'approved', confirmed_at = $1, action_token = NULL WHERE id = $2",
@@ -159,14 +161,14 @@ async function approveLog(client, log, request) {
       await client.query("UPDATE requests SET status = 'approved' WHERE id = $1", [request.id]);
       await client.query('COMMIT');
       return {
-        message: 'Final approval confirmed. All parallel approvers are complete.',
+        message: `Final approval confirmed. All parallel approvers are complete.${overdueNote}`,
         status: 'approved'
       };
     }
 
     await client.query('COMMIT');
     return {
-      message: `Approval confirmed. Waiting for ${pendingCount} more parallel approver${pendingCount === 1 ? '' : 's'}.`,
+      message: `Approval confirmed. Waiting for ${pendingCount} more parallel approver${pendingCount === 1 ? '' : 's'}.${overdueNote}`,
       status: 'pending'
     };
   }
@@ -205,7 +207,7 @@ async function approveLog(client, log, request) {
     });
 
     return {
-      message: 'Approval confirmed. Escalated to next level.',
+      message: `Approval confirmed. Escalated to next level.${overdueNote}`,
       nextLevel,
       nextApprover: nextApproverEmail,
       emailDraft: nextEmailDraft
@@ -220,7 +222,7 @@ async function approveLog(client, log, request) {
   await client.query('COMMIT');
 
   return {
-    message: 'Final approval confirmed. Request is approved.',
+    message: `Final approval confirmed. Request is approved.${overdueNote}`,
     status: 'approved'
   };
 }
@@ -300,16 +302,55 @@ async function processApprovalByLogId(approvalLogId, action) {
 }
 
 async function processApprovalByToken(token, action) {
-  const { rows } = await db.query(
-    'SELECT id FROM approval_logs WHERE action_token = $1 AND action = $2',
-    [token, 'pending']
-  );
+  const client = await db.connect();
 
-  if (rows.length === 0) {
-    return { statusCode: 404, body: { error: 'This approval link is invalid or already used.' } };
+  try {
+    await client.query('BEGIN');
+
+    const { rows: logs } = await client.query(
+      'SELECT * FROM approval_logs WHERE action_token = $1 FOR UPDATE',
+      [token]
+    );
+
+    if (logs.length === 0) {
+      await client.query('ROLLBACK');
+      return { statusCode: 404, body: { error: 'This approval link is invalid or already used.' } };
+    }
+
+    const log = logs[0];
+    if (log.action !== 'pending') {
+      await client.query('ROLLBACK');
+      return { statusCode: 400, body: { error: `Approval already processed. Current action: ${log.action}` } };
+    }
+
+    const { rows: requests } = await client.query(
+      'SELECT * FROM requests WHERE id = $1 FOR UPDATE',
+      [log.request_id]
+    );
+
+    if (requests.length === 0) {
+      await client.query('ROLLBACK');
+      return { statusCode: 404, body: { error: 'Associated request not found.' } };
+    }
+
+    const request = requests[0];
+    if (request.status !== 'pending') {
+      await client.query('ROLLBACK');
+      return { statusCode: 400, body: { error: `Request is not pending. Status: ${request.status}` } };
+    }
+
+    const body = action === 'approve'
+      ? await approveLog(client, log, request)
+      : await rejectLog(client, log, request);
+
+    return { statusCode: 200, body };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error(`Error processing ${action} by token:`, error);
+    return { statusCode: 500, body: { error: `Failed to ${action} request.` } };
+  } finally {
+    client.release();
   }
-
-  return processApprovalByLogId(rows[0].id, action);
 }
 
 router.get('/pending', async (req, res) => {
