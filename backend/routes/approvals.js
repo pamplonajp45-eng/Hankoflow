@@ -17,6 +17,45 @@ function serializeForScript(value) {
   return JSON.stringify(value).replace(/</g, '\\u003c');
 }
 
+function confirmationPage(token, actionPath) {
+  const safeToken = encodeURIComponent(token);
+  const safeActionPath = actionPath || `/api/approvals/a/${safeToken}/confirm`;
+
+  return `
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Confirm Hanko</title>
+        <style>
+          body { font-family: Arial, sans-serif; background: #f6f7fb; margin: 0; padding: 40px; color: #172033; }
+          main { max-width: 620px; margin: 0 auto; background: #fff; border: 1px solid #dde2ec; border-radius: 8px; padding: 28px; }
+          h1 { margin-top: 0; font-size: 24px; }
+          p { line-height: 1.55; }
+          .hint { color: #64748b; font-size: 14px; }
+          .button { border: 0; cursor: pointer; display: inline-block; background: #16a34a; color: #fff; text-decoration: none; padding: 12px 16px; border-radius: 6px; font-weight: 700; font-size: 14px; }
+          @media (max-width: 560px) {
+            body { padding: 16px; }
+            main { padding: 20px; }
+            .button { width: 100%; box-sizing: border-box; }
+          }
+        </style>
+      </head>
+      <body>
+        <main>
+          <h1>Confirm Hanko Done</h1>
+          <p>Please confirm only after you opened the Excel file, applied your Hanko/signature, and saved it.</p>
+          <form method="post" action="${escapeHtml(safeActionPath)}">
+            <button class="button" type="submit">Confirm Hanko Done</button>
+          </form>
+          <p class="hint">Opening this page alone does not approve the request.</p>
+        </main>
+      </body>
+    </html>
+  `;
+}
+
 function actionPage(title, message, nextDraft = null) {
   const nextDraftHtml = nextDraft
     ? `
@@ -377,6 +416,13 @@ router.get('/pending', async (req, res) => {
 });
 
 router.get('/email/:token/approve', async (req, res) => {
+  return res.send(confirmationPage(
+    req.params.token,
+    `/api/approvals/email/${encodeURIComponent(req.params.token)}/approve/confirm`
+  ));
+});
+
+router.post('/email/:token/approve/confirm', async (req, res) => {
   const result = await processApprovalByToken(req.params.token, 'approve');
   const title = result.statusCode === 200 ? 'Approval Recorded' : 'Approval Link Error';
   const message = result.body.message || result.body.error;
@@ -384,6 +430,13 @@ router.get('/email/:token/approve', async (req, res) => {
 });
 
 router.get('/a/:token', async (req, res) => {
+  return res.send(confirmationPage(
+    req.params.token,
+    `/api/approvals/a/${encodeURIComponent(req.params.token)}/confirm`
+  ));
+});
+
+router.post('/a/:token/confirm', async (req, res) => {
   const result = await processApprovalByToken(req.params.token, 'approve');
   const title = result.statusCode === 200 ? 'Approval Recorded' : 'Approval Link Error';
   const message = result.body.message || result.body.error;
